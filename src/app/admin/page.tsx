@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession, signIn, signOut } from "next-auth/react";
 import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -12,11 +13,9 @@ import QRCode from "qrcode";
 
 const DOMAIN = "juinjungsin.site";
 
-// TODO: NextAuth Google OAuth 연동 후 실제 인증으로 교체
-const TEMP_ADMIN_ID = "admin_temp";
-
 export default function AdminPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [sessions, setSessions] = useState<(Session & { id: string })[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
@@ -24,18 +23,21 @@ export default function AdminPage() {
   const [creating, setCreating] = useState(false);
   const [qrModal, setQrModal] = useState<{ code: string; qrUrl: string; sessionId: string } | null>(null);
 
+  const adminId = (session?.user as Record<string, unknown>)?.id as string | undefined;
+
   useEffect(() => {
-    loadSessions();
-  }, []);
+    if (adminId) loadSessions();
+  }, [adminId]);
 
   async function loadSessions() {
-    const list = await getSessionsByAdmin(TEMP_ADMIN_ID);
+    if (!adminId) return;
+    const list = await getSessionsByAdmin(adminId);
     setSessions(list);
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !adminId) return;
     setCreating(true);
 
     const code = generateSessionCode();
@@ -43,7 +45,7 @@ export default function AdminPage() {
       title: title.trim(),
       description: description.trim(),
       code,
-      createdBy: TEMP_ADMIN_ID,
+      createdBy: adminId,
       requireGoogleLogin: false,
     });
 
@@ -61,17 +63,58 @@ export default function AdminPage() {
     setQrModal({ code, qrUrl, sessionId });
   }
 
+  // 로딩 중
+  if (status === "loading") {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-eggshell text-gravel">
+        로딩 중...
+      </div>
+    );
+  }
+
+  // 미인증 — Google 로그인 화면
+  if (!session) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-eggshell px-4">
+        <div className="text-center mb-8">
+          <h1
+            className="font-display text-5xl text-obsidian mb-3"
+            style={{ fontWeight: 300, letterSpacing: "-0.96px", lineHeight: 1.08 }}
+          >
+            padolet
+          </h1>
+          <p className="text-base text-gravel">강사 로그인</p>
+        </div>
+        <Card className="w-full max-w-sm p-8 text-center">
+          <p className="text-sm text-gravel mb-6">
+            세션을 생성하고 관리하려면 Google 계정으로 로그인하세요.
+          </p>
+          <Button onClick={() => signIn("google")}>Google로 로그인</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // 인증된 Admin 대시보드
   return (
     <div className="flex flex-col min-h-screen bg-eggshell">
       <Nav isAdmin />
       <div className="max-w-[1200px] mx-auto w-full px-6 py-12">
         <div className="flex items-center justify-between mb-8">
-          <h1
-            className="font-display text-4xl text-obsidian"
-            style={{ fontWeight: 300, letterSpacing: "-0.72px" }}
-          >
-            세션 관리
-          </h1>
+          <div>
+            <h1
+              className="font-display text-4xl text-obsidian"
+              style={{ fontWeight: 300, letterSpacing: "-0.72px" }}
+            >
+              세션 관리
+            </h1>
+            <p className="text-xs text-gravel mt-1">
+              {session.user?.name} ({session.user?.email})
+              <button onClick={() => signOut()} className="ml-2 text-slate hover:text-obsidian underline cursor-pointer">
+                로그아웃
+              </button>
+            </p>
+          </div>
           <Button onClick={() => setShowCreate(true)}>새 세션 생성</Button>
         </div>
 

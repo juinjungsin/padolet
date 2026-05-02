@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Message, onMessages, addMessage } from "@/lib/firestore";
+import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { RiSendPlaneFill, RiAttachmentLine } from "react-icons/ri";
 
 interface ChatPanelProps {
@@ -14,6 +15,7 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +42,39 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
     setSending(false);
   }
 
+  async function uploadAndSendFile(file: File) {
+    const fileKey = `${file.name}_${Date.now()}`;
+    const { promise } = uploadFile(sessionId, file, (p) => {
+      setUploadProgress((prev) => ({ ...prev, [fileKey]: p }));
+    });
+
+    try {
+      const result = await promise;
+      const isImage = file.type.startsWith("image/");
+      await addMessage(sessionId, {
+        authorId,
+        authorName,
+        content: isImage ? "" : result.name,
+        type: isImage ? "image" : "file",
+        fileUrl: result.url,
+        fileMeta: { name: result.name, size: result.size, mimeType: result.mimeType },
+      });
+    } catch {
+      await addMessage(sessionId, {
+        authorId,
+        authorName,
+        content: `⚠️ ${file.name} 업로드 실패`,
+        type: "text",
+      });
+    } finally {
+      setUploadProgress((prev) => {
+        const next = { ...prev };
+        delete next[fileKey];
+        return next;
+      });
+    }
+  }
+
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -47,13 +82,11 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
     for (const item of Array.from(items)) {
       if (item.type.startsWith("image/")) {
         e.preventDefault();
-        // 스크린샷 붙여넣기 — Phase 4에서 Firebase Storage 연동 후 활성화
-        await addMessage(sessionId, {
-          authorId,
-          authorName,
-          content: "[스크린샷 — 파일 저장소 연동 후 활성화]",
-          type: "text",
-        });
+        const file = item.getAsFile();
+        if (file) {
+          const namedFile = new File([file], `screenshot_${Date.now()}.png`, { type: file.type });
+          await uploadAndSendFile(namedFile);
+        }
         break;
       }
     }
@@ -67,30 +100,44 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
     const files = e.target.files;
     if (!files) return;
 
-    const fileArray = Array.from(files).slice(0, 20);
-    for (const file of fileArray) {
-      if (file.size > 50 * 1024 * 1024) {
-        await addMessage(sessionId, {
-          authorId,
-          authorName,
-          content: `⚠️ ${file.name} — 50MB 초과로 업로드할 수 없습니다.`,
-          type: "text",
-        });
-        continue;
-      }
-      // Phase 4에서 실제 파일 업로드 구현
+    const { valid, errors } = validateFiles(Array.from(files));
+
+    for (const err of errors) {
       await addMessage(sessionId, {
         authorId,
         authorName,
-        content: `📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) — 저장소 연동 후 활성화`,
+        content: `⚠️ ${err}`,
         type: "text",
       });
     }
+
+    for (const file of valid) {
+      await uploadAndSendFile(file);
+    }
+
     e.target.value = "";
   }
 
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    const { valid, errors } = validateFiles(Array.from(files));
+    errors.forEach((err) => {
+      addMessage(sessionId, { authorId, authorName, content: `⚠️ ${err}`, type: "text" });
+    });
+    valid.forEach((file) => uploadAndSendFile(file));
+  }
+
+  const uploading = Object.keys(uploadProgress).length > 0;
+
   return (
-    <div className="flex flex-col h-full border-l border-chalk bg-white">
+    <div
+      className="flex flex-col h-full border-l border-chalk bg-white"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+    >
       <div className="px-4 py-3 border-b border-chalk">
         <span className="text-sm font-medium text-obsidian">대화</span>
       </div>
@@ -106,7 +153,26 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
                   : "bg-powder text-obsidian"
               }`}
             >
-              {msg.content}
+              {msg.type === "image" && msg.fileUrl && (
+                <img
+                  src={msg.fileUrl}
+                  alt={msg.fileMeta?.name || "이미지"}
+                  className="max-w-full rounded-lg mb-1 cursor-pointer"
+                  onClick={() => window.open(msg.fileUrl, "_blank")}
+                />
+              )}
+              {msg.type === "file" && msg.fileUrl && (
+                <a
+                  href={msg.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  📎 {msg.fileMeta?.name || "파일"} ({((msg.fileMeta?.size || 0) / 1024 / 1024).toFixed(1)}MB)
+                </a>
+              )}
+              {msg.type === "text" && msg.content}
+              {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
             </div>
             <p className="text-[10px] text-slate mt-0.5">
               {msg.createdAt?.toDate?.()
@@ -116,6 +182,19 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
           </div>
         ))}
       </div>
+
+      {uploading && (
+        <div className="px-4 py-2 border-t border-chalk">
+          {Object.entries(uploadProgress).map(([key, p]) => (
+            <div key={key} className="flex items-center gap-2 text-xs text-gravel">
+              <div className="flex-1 h-1 bg-chalk rounded-full overflow-hidden">
+                <div className="h-full bg-obsidian transition-all" style={{ width: `${p.progress}%` }} />
+              </div>
+              <span>{p.progress}%</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <form onSubmit={handleSend} onPaste={handlePaste} className="p-3 border-t border-chalk flex items-center gap-2">
         <input

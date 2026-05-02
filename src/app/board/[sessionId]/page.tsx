@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Nav from "@/components/layout/Nav";
 import PostGrid from "@/components/board/PostGrid";
 import PostInput from "@/components/board/PostInput";
@@ -16,6 +17,7 @@ interface ParticipantInfo {
 export default function BoardPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: authSession } = useSession();
   const sessionId = params.sessionId as string;
 
   const [session, setSession] = useState<Session | null>(null);
@@ -62,8 +64,8 @@ export default function BoardPage() {
     );
   }
 
-  // TODO: Admin 판별은 NextAuth 세션과 session.createdBy 비교로 구현
-  const isAdmin = false;
+  const adminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
+  const isAdmin = !!adminId && session?.createdBy === adminId;
 
   return (
     <div className="flex flex-col h-screen bg-eggshell">

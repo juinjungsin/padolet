@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
@@ -84,6 +84,15 @@ export default function ReportPage() {
     return md;
   }
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    const md = generateMarkdown();
+    navigator.clipboard.writeText(md);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [session, participants, posts, messages]);
+
   function downloadReport() {
     const md = generateMarkdown();
     const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
@@ -114,7 +123,12 @@ export default function ReportPage() {
           >
             {session?.title} — 레포트
           </h1>
-          <Button onClick={downloadReport}>MD 다운로드</Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={handleCopy}>
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+            <Button onClick={downloadReport}>MD 다운로드</Button>
+          </div>
         </div>
 
         <div className="space-y-6">

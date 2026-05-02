@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -22,6 +22,7 @@ import { db as getDb } from "@/lib/firebase";
 
 export default function ReportPage() {
   const params = useParams();
+  const router = useRouter();
   const sessionId = params.sessionId as string;
 
   const [session, setSession] = useState<Session | null>(null);
@@ -124,6 +125,9 @@ export default function ReportPage() {
             {session?.title} — 레포트
           </h1>
           <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => router.push(`/board/${sessionId}`)}>
+              보드로 돌아가기
+            </Button>
             <Button variant="ghost" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy"}
             </Button>

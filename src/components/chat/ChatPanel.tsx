@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Message, onMessages, addMessage } from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
-import { RiSendPlaneFill, RiAttachmentLine, RiFileCopyLine } from "react-icons/ri";
+import { RiSendPlaneFill, RiAttachmentLine, RiFileCopyLine, RiReplyLine } from "react-icons/ri";
 
 function renderTextWithLinks(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/gi);
@@ -25,6 +25,12 @@ function renderTextWithLinks(text: string) {
   });
 }
 
+interface ReplyTarget {
+  id: string;
+  authorName: string;
+  content: string;
+}
+
 interface ChatPanelProps {
   sessionId: string;
   authorId: string;
@@ -36,9 +42,11 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
   const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsub = onMessages(sessionId, setMessages);
@@ -49,17 +57,30 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  function handleReply(msg: Message) {
+    const preview = msg.content.length > 30 ? msg.content.slice(0, 30) + "..." : msg.content;
+    setReplyTo({ id: msg.id!, authorName: msg.authorName, content: preview });
+    inputRef.current?.focus();
+  }
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || sending) return;
     setSending(true);
+
+    let content = input.trim();
+    if (replyTo) {
+      content = `┃ ${replyTo.authorName}: ${replyTo.content}\n${content}`;
+    }
+
     await addMessage(sessionId, {
       authorId,
       authorName,
-      content: input.trim(),
+      content,
       type: "text",
     });
     setInput("");
+    setReplyTo(null);
     setSending(false);
   }
 
@@ -151,6 +172,32 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
     valid.forEach((file) => uploadAndSendFile(file));
   }
 
+  function renderMessageContent(msg: Message) {
+    if (msg.type !== "text") return null;
+
+    const lines = msg.content.split("\n");
+    const isReply = lines[0]?.startsWith("┃ ");
+
+    if (isReply && lines.length >= 2) {
+      const quoteLine = lines[0].slice(2);
+      const body = lines.slice(1).join("\n");
+      return (
+        <div>
+          <div className={`text-[11px] mb-1 px-2 py-1 rounded border-l-2 ${
+            msg.authorId === authorId
+              ? "border-eggshell/50 bg-white/10 text-eggshell/70"
+              : "border-gravel/30 bg-obsidian/5 text-gravel"
+          }`}>
+            {quoteLine}
+          </div>
+          <div>{renderTextWithLinks(body)}</div>
+        </div>
+      );
+    }
+
+    return <>{renderTextWithLinks(msg.content)}</>;
+  }
+
   const uploading = Object.keys(uploadProgress).length > 0;
 
   return (
@@ -168,7 +215,7 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
           <div key={msg.id} className={`${msg.authorId === authorId ? "text-right" : ""}`}>
             <p className="text-[10px] text-gravel mb-0.5">{msg.authorName}</p>
             <div
-              className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm ${
+              className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm text-left ${
                 msg.authorId === authorId
                   ? "bg-obsidian text-eggshell"
                   : "bg-powder text-obsidian"
@@ -192,10 +239,10 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
                   📎 {msg.fileMeta?.name || "파일"} ({((msg.fileMeta?.size || 0) / 1024 / 1024).toFixed(1)}MB)
                 </a>
               )}
-              {msg.type === "text" && renderTextWithLinks(msg.content)}
+              {msg.type === "text" && renderMessageContent(msg)}
               {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className={`flex items-center gap-2 mt-0.5 ${msg.authorId === authorId ? "justify-end" : ""}`}>
               <p className="text-[10px] text-slate">
                 {msg.createdAt?.toDate?.()
                   ? msg.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
@@ -211,6 +258,13 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
               >
                 <RiFileCopyLine size={10} />
                 {copiedId === msg.id ? "Copied!" : "Copy"}
+              </button>
+              <button
+                onClick={() => handleReply(msg)}
+                className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+              >
+                <RiReplyLine size={10} />
+                Reply
               </button>
             </div>
           </div>
@@ -230,6 +284,22 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
         </div>
       )}
 
+      {replyTo && (
+        <div className="px-3 py-2 border-t border-chalk bg-powder flex items-center gap-2">
+          <RiReplyLine size={12} className="text-gravel flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-gravel font-medium">{replyTo.authorName}</p>
+            <p className="text-[11px] text-slate truncate">{replyTo.content}</p>
+          </div>
+          <button
+            onClick={() => setReplyTo(null)}
+            className="text-slate hover:text-obsidian cursor-pointer text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSend} onPaste={handlePaste} className="p-3 border-t border-chalk flex items-center gap-2">
         <input
           ref={fileInputRef}
@@ -242,9 +312,10 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
           <RiAttachmentLine size={18} />
         </button>
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="메시지 입력..."
+          placeholder={replyTo ? `${replyTo.authorName}에게 답장...` : "메시지 입력..."}
           className="flex-1 bg-transparent text-sm text-obsidian placeholder:text-slate outline-none"
         />
         <button

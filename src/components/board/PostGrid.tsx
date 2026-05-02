@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Post, onPosts, deletePost } from "@/lib/firestore";
 import Card from "@/components/ui/Card";
-import { RiDeleteBinLine } from "react-icons/ri";
+import { RiDeleteBinLine, RiFileCopyLine } from "react-icons/ri";
 
 interface PostGridProps {
   sessionId: string;
@@ -18,9 +18,17 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
     return () => unsub();
   }, [sessionId]);
 
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   async function handleDelete(postId: string) {
     if (!postId) return;
     await deletePost(sessionId, postId);
+  }
+
+  async function handleCopy(text: string, postId: string) {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(postId);
+    setTimeout(() => setCopiedId(null), 1500);
   }
 
   function renderContent(post: Post) {
@@ -79,11 +87,20 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
             )}
           </div>
           {renderContent(post)}
-          <p className="text-[10px] text-slate mt-2">
-            {post.createdAt?.toDate?.()
-              ? post.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-              : ""}
-          </p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-[10px] text-slate">
+              {post.createdAt?.toDate?.()
+                ? post.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+                : ""}
+            </p>
+            <button
+              onClick={() => handleCopy(post.content, post.id!)}
+              className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+            >
+              <RiFileCopyLine size={11} />
+              {copiedId === post.id ? "Copied!" : "Copy"}
+            </button>
+          </div>
         </Card>
       ))}
     </div>

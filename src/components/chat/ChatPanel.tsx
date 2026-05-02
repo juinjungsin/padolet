@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Message, onMessages, addMessage } from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
-import { RiSendPlaneFill, RiAttachmentLine } from "react-icons/ri";
+import { RiSendPlaneFill, RiAttachmentLine, RiFileCopyLine } from "react-icons/ri";
 
 function renderTextWithLinks(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/gi);
@@ -35,6 +35,7 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -194,11 +195,24 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
               {msg.type === "text" && renderTextWithLinks(msg.content)}
               {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
             </div>
-            <p className="text-[10px] text-slate mt-0.5">
-              {msg.createdAt?.toDate?.()
-                ? msg.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-                : ""}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-[10px] text-slate">
+                {msg.createdAt?.toDate?.()
+                  ? msg.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+                  : ""}
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(msg.content);
+                  setCopiedId(msg.id!);
+                  setTimeout(() => setCopiedId(null), 1500);
+                }}
+                className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+              >
+                <RiFileCopyLine size={10} />
+                {copiedId === msg.id ? "Copied!" : "Copy"}
+              </button>
+            </div>
           </div>
         ))}
       </div>

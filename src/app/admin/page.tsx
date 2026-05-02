@@ -11,7 +11,7 @@ import { createSession, getSessionsByAdmin, Session } from "@/lib/firestore";
 import { generateSessionCode } from "@/lib/session-code";
 import QRCode from "qrcode";
 
-const DOMAIN = "juinjungsin.site";
+const DOMAIN = "padolet.vercel.app";
 
 export default function AdminPage() {
   const router = useRouter();

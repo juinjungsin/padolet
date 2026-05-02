@@ -20,17 +20,17 @@ export default function Nav({ sessionTitle, sessionCode, sessionId, participantC
         padolet
       </Link>
 
+      {sessionCode && (
+        <span className="ml-3 text-base font-mono font-bold tracking-[0.2em] text-obsidian">
+          {sessionCode}
+        </span>
+      )}
+
       {sessionTitle && (
-        <span className="ml-4 text-sm text-gravel truncate hidden sm:inline">{sessionTitle}</span>
+        <span className="ml-3 text-sm text-gravel truncate hidden sm:inline">{sessionTitle}</span>
       )}
 
       <div className="ml-auto flex items-center gap-3">
-        {sessionCode && (
-          <span className="text-xs font-mono font-medium tracking-widest bg-powder px-2.5 py-1 rounded-full text-obsidian">
-            {sessionCode}
-          </span>
-        )}
-
         {typeof participantCount === "number" && (
           <div className="flex items-center gap-1 text-sm text-gravel">
             <RiUserLine size={14} />

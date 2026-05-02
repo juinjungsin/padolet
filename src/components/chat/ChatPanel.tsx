@@ -4,13 +4,6 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Message, onMessages, addMessage } from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { RiSendPlaneFill, RiAttachmentLine } from "react-icons/ri";
-import LinkPreview from "@/components/ui/LinkPreview";
-
-const URL_REGEX = /https?:\/\/[^\s]+/gi;
-function extractUrl(text: string): string | null {
-  const match = text.match(URL_REGEX);
-  return match ? match[0] : null;
-}
 
 function renderTextWithLinks(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/gi);
@@ -201,11 +194,6 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
               {msg.type === "text" && renderTextWithLinks(msg.content)}
               {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
             </div>
-            {msg.type === "text" && extractUrl(msg.content) && (
-              <div className={`max-w-[85%] ${msg.authorId === authorId ? "ml-auto" : ""}`}>
-                <LinkPreview url={extractUrl(msg.content)!} />
-              </div>
-            )}
             <p className="text-[10px] text-slate mt-0.5">
               {msg.createdAt?.toDate?.()
                 ? msg.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })

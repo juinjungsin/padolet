@@ -77,8 +77,7 @@ export default function PostInput({ sessionId, authorId, authorName, currentPost
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="포스트잇에 내용을 작성하세요 (최대 500자)"
-          maxLength={500}
+          placeholder="포스트잇에 내용을 작성하세요"
           rows={3}
           className="w-full resize-none bg-transparent text-sm text-obsidian placeholder:text-slate/60 outline-none"
         />
@@ -100,7 +99,7 @@ export default function PostInput({ sessionId, authorId, authorName, currentPost
           >
             <RiImageAddLine size={16} />
           </button>
-          <span className="text-xs text-slate ml-auto">{content.length}/500</span>
+          <span className="text-xs text-slate ml-auto">{content.length}</span>
         </div>
       </div>
     </form>

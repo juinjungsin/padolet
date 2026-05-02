@@ -50,7 +50,8 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
             <img
               src={post.fileUrl}
               alt={post.fileMeta?.name || "이미지"}
-              className="w-full h-32 object-cover rounded-lg mb-2"
+              className="w-full rounded-lg mb-2 cursor-pointer"
+              onClick={() => window.open(post.fileUrl, "_blank")}
             />
             {post.content && <p className="text-sm text-obsidian">{post.content}</p>}
           </div>

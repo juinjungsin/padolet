@@ -73,22 +73,24 @@ export default function PostInput({ sessionId, authorId, authorName, currentPost
 
   return (
     <form onSubmit={handleSubmit} className="p-4 border-b border-chalk">
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="포스트잇에 내용을 작성하세요 (최대 500자)"
-        maxLength={500}
-        rows={3}
-        className="w-full resize-none bg-white border border-chalk rounded-none p-3 text-sm text-obsidian placeholder:text-slate outline-none shadow-[--shadow-subtle]"
-      />
-      {uploadProgress > 0 && (
-        <div className="mt-1 h-1 bg-chalk rounded-full overflow-hidden">
-          <div className="h-full bg-obsidian transition-all" style={{ width: `${uploadProgress}%` }} />
-        </div>
-      )}
-      <div className="flex justify-between items-center mt-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate">{content.length}/500</span>
+      <div className="bg-[#fffde6] border border-[#f0e68c] rounded-xl p-4">
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="포스트잇에 내용을 작성하세요 (최대 500자)"
+          maxLength={500}
+          rows={3}
+          className="w-full resize-none bg-transparent text-sm text-obsidian placeholder:text-slate/60 outline-none"
+        />
+        {uploadProgress > 0 && (
+          <div className="mt-1 h-1 bg-[#f0e68c] rounded-full overflow-hidden">
+            <div className="h-full bg-obsidian transition-all" style={{ width: `${uploadProgress}%` }} />
+          </div>
+        )}
+        <div className="flex items-center gap-3 mt-2">
+          <Button type="submit" disabled={loading || !content.trim()}>
+            {loading ? "게시 중..." : "게시"}
+          </Button>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
           <button
             type="button"
@@ -98,10 +100,8 @@ export default function PostInput({ sessionId, authorId, authorName, currentPost
           >
             <RiImageAddLine size={16} />
           </button>
+          <span className="text-xs text-slate ml-auto">{content.length}/500</span>
         </div>
-        <Button type="submit" disabled={loading || !content.trim()}>
-          {loading ? "게시 중..." : "게시"}
-        </Button>
       </div>
     </form>
   );

@@ -73,6 +73,8 @@ export default function BoardPage() {
     <div className="flex flex-col h-screen bg-eggshell">
       <Nav
         sessionTitle={session?.title}
+        sessionCode={session?.code}
+        sessionId={sessionId}
         participantCount={participantCount}
         isAdmin={isAdmin}
       />

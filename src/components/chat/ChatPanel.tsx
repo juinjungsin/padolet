@@ -6,10 +6,30 @@ import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { RiSendPlaneFill, RiAttachmentLine } from "react-icons/ri";
 import LinkPreview from "@/components/ui/LinkPreview";
 
-const URL_REGEX = /https?:\/\/[^\s]+/i;
+const URL_REGEX = /https?:\/\/[^\s]+/gi;
 function extractUrl(text: string): string | null {
   const match = text.match(URL_REGEX);
   return match ? match[0] : null;
+}
+
+function renderTextWithLinks(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/gi);
+  return parts.map((part, i) => {
+    if (/^https?:\/\//i.test(part)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline break-all"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
 }
 
 interface ChatPanelProps {
@@ -178,7 +198,7 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
                   📎 {msg.fileMeta?.name || "파일"} ({((msg.fileMeta?.size || 0) / 1024 / 1024).toFixed(1)}MB)
                 </a>
               )}
-              {msg.type === "text" && msg.content}
+              {msg.type === "text" && renderTextWithLinks(msg.content)}
               {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
             </div>
             {msg.type === "text" && extractUrl(msg.content) && (

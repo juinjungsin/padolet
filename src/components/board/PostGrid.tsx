@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Post, onPosts, deletePost } from "@/lib/firestore";
 import Card from "@/components/ui/Card";
 import { RiDeleteBinLine } from "react-icons/ri";
+import LinkPreview from "@/components/ui/LinkPreview";
 
 interface PostGridProps {
   sessionId: string;
@@ -27,14 +28,17 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
     switch (post.type) {
       case "link":
         return (
-          <a
-            href={post.content}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-signal-blue text-sm break-all hover:underline"
-          >
-            {post.content}
-          </a>
+          <div>
+            <a
+              href={post.content}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-signal-blue text-xs break-all hover:underline"
+            >
+              {post.content}
+            </a>
+            <LinkPreview url={post.content} />
+          </div>
         );
       case "image":
         return (

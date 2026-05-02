@@ -64,7 +64,7 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-5 gap-3 p-4 auto-rows-min">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4 auto-rows-min">
       {posts.map((post) => (
         <Card key={post.id} className="p-4 relative group">
           <div className="flex items-center justify-between mb-2">

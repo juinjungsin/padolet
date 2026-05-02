@@ -7,7 +7,8 @@ import Nav from "@/components/layout/Nav";
 import PostGrid from "@/components/board/PostGrid";
 import PostInput from "@/components/board/PostInput";
 import ChatPanel from "@/components/chat/ChatPanel";
-import { getSession, onParticipants, onPosts, Session, Post } from "@/lib/firestore";
+import { getSession, onParticipants, onPosts, Session } from "@/lib/firestore";
+import { RiChat3Line, RiStickyNoteLine } from "react-icons/ri";
 
 interface ParticipantInfo {
   participantId: string;
@@ -25,6 +26,7 @@ export default function BoardPage() {
   const [participant, setParticipant] = useState<ParticipantInfo | null>(null);
   const [postCount, setPostCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [mobileTab, setMobileTab] = useState<"board" | "chat">("board");
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`padolet_${sessionId}`);
@@ -74,7 +76,9 @@ export default function BoardPage() {
         participantCount={participantCount}
         isAdmin={isAdmin}
       />
-      <div className="flex flex-1 overflow-hidden">
+
+      {/* 데스크탑: 좌 3/4 보드 + 우 1/4 채팅 */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-y-auto" style={{ width: "75%" }}>
           <PostInput
             sessionId={sessionId}
@@ -90,6 +94,51 @@ export default function BoardPage() {
             authorId={participant.participantId}
             authorName={participant.name}
           />
+        </div>
+      </div>
+
+      {/* 모바일: 탭 전환 */}
+      <div className="flex md:hidden flex-1 flex-col overflow-hidden">
+        {mobileTab === "board" ? (
+          <div className="flex-1 flex flex-col overflow-y-auto">
+            <PostInput
+              sessionId={sessionId}
+              authorId={participant.participantId}
+              authorName={participant.name}
+              currentPostCount={postCount}
+            />
+            <PostGrid sessionId={sessionId} isAdmin={isAdmin} />
+          </div>
+        ) : (
+          <div className="flex-1">
+            <ChatPanel
+              sessionId={sessionId}
+              authorId={participant.participantId}
+              authorName={participant.name}
+            />
+          </div>
+        )}
+
+        {/* 모바일 하단 탭 바 */}
+        <div className="flex border-t border-chalk bg-white">
+          <button
+            onClick={() => setMobileTab("board")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm cursor-pointer ${
+              mobileTab === "board" ? "text-obsidian font-medium" : "text-gravel"
+            }`}
+          >
+            <RiStickyNoteLine size={16} />
+            보드
+          </button>
+          <button
+            onClick={() => setMobileTab("chat")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm cursor-pointer ${
+              mobileTab === "chat" ? "text-obsidian font-medium" : "text-gravel"
+            }`}
+          >
+            <RiChat3Line size={16} />
+            대화
+          </button>
         </div>
       </div>
     </div>

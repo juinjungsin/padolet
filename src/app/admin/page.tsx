@@ -99,11 +99,11 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col min-h-screen bg-eggshell">
       <Nav isAdmin />
-      <div className="max-w-[1200px] mx-auto w-full px-6 py-12">
-        <div className="flex items-center justify-between mb-8">
+      <div className="max-w-[1200px] mx-auto w-full px-4 md:px-6 py-8 md:py-12">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1
-              className="font-display text-4xl text-obsidian"
+              className="font-display text-3xl md:text-4xl text-obsidian"
               style={{ fontWeight: 300, letterSpacing: "-0.72px" }}
             >
               세션 관리
@@ -150,7 +150,7 @@ export default function AdminPage() {
             <p className="text-sm text-gravel text-center py-12">아직 생성된 세션이 없습니다.</p>
           )}
           {sessions.map((s) => (
-            <Card key={s.id} className="p-5 flex items-center justify-between">
+            <Card key={s.id} className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-obsidian">{s.title}</p>
                 <p className="text-xs text-gravel mt-1">

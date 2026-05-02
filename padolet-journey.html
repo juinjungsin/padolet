@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>padolet 빌딩 여정 — 초보자 가이드</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Cormorant+Garamond:wght@300&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #fdfcfc;
+      color: #000;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 60px 24px;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 48px;
+      letter-spacing: -0.96px;
+      line-height: 1.08;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      color: #777169;
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+
+    .phase {
+      margin-bottom: 56px;
+      border-left: 2px solid #e5e5e5;
+      padding-left: 28px;
+      position: relative;
+    }
+
+    .phase::before {
+      content: '';
+      position: absolute;
+      left: -7px;
+      top: 6px;
+      width: 12px;
+      height: 12px;
+      background: #000;
+      border-radius: 50%;
+    }
+
+    .phase-title {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .phase-desc {
+      color: #777169;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .step {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-bottom: 12px;
+      box-shadow: rgba(0,0,0,0.4) 0px 0px 1px 0px, rgba(0,0,0,0.04) 0px 2px 4px 0px;
+    }
+
+    .step-number {
+      display: inline-block;
+      background: #000;
+      color: #fdfcfc;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      margin-bottom: 8px;
+    }
+
+    .step-title {
+      font-weight: 500;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+
+    .step-body {
+      color: #777169;
+      font-size: 13px;
+    }
+
+    .step-body code {
+      background: #f5f3f1;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 12px;
+      color: #000;
+    }
+
+    .chart-section {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 16px;
+      padding: 32px;
+      margin: 32px 0;
+      box-shadow: rgba(0,0,0,0.4) 0px 0px 1px 0px, rgba(0,0,0,0.04) 0px 2px 4px 0px;
+      overflow-x: auto;
+    }
+
+    .chart-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #777169;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .tech-card {
+      background: #f5f3f1;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .tech-card .label {
+      font-size: 11px;
+      color: #777169;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tech-card .value {
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    .file-tree {
+      background: #f5f3f1;
+      border-radius: 12px;
+      padding: 20px 24px;
+      font-family: 'Geist Mono', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      color: #575349;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    .file-tree .folder { color: #000; font-weight: 500; }
+    .file-tree .file { color: #777169; }
+    .file-tree .highlight { color: #0447ff; }
+
+    .tip {
+      background: #f5f3f1;
+      border-left: 3px solid #000;
+      border-radius: 0 12px 12px 0;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+
+    .tip-label {
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .error-box {
+      background: #fff;
+      border-left: 3px solid #ff4704;
+      border-radius: 0 12px 12px 0;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+
+    .error-label {
+      color: #ff4704;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .timeline {
+      margin: 40px 0;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .timeline-time {
+      color: #777169;
+      min-width: 50px;
+      font-family: monospace;
+    }
+
+    .timeline-dot {
+      width: 8px;
+      height: 8px;
+      background: #000;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e5e5;
+      margin: 48px 0;
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+
+    @media (max-width: 640px) {
+      h1 { font-size: 32px; }
+      .tech-grid { grid-template-columns: repeat(2, 1fr); }
+      .container { padding: 32px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>padolet 빌딩 여정</h1>
+  <p class="subtitle">
+    PRD 작성부터 프로덕션 배포까지 — 교육용 실시간 커뮤니케이션 보드를 만든 전체 과정.
+    <br>AI 코딩 어시스턴트(Claude Code)와 함께 약 2시간 만에 완성한 풀스택 웹앱 빌딩 기록.
+  </p>
+
+
+  <!-- ===== 전체 흐름 차트 ===== -->
+  <div class="chart-section">
+    <div class="chart-title">전체 빌딩 흐름</div>
+    <div class="mermaid">
+flowchart LR
+  A["기획\nPRD 작성"] --> B["설계\n기술스택 선정"]
+  B --> C["기초\n프로젝트 초기화"]
+  C --> D["기능\n핵심 기능 구현"]
+  D --> E["인증\nGoogle OAuth"]
+  E --> F["배포\nVercel + 도메인"]
+  F --> G["검증\n통합 테스트"]
+
+  style A fill:#f5f3f1,stroke:#e5e5e5,color:#000
+  style B fill:#f5f3f1,stroke:#e5e5e5,color:#000
+  style C fill:#f5f3f1,stroke:#e5e5e5,color:#000
+  style D fill:#000,stroke:#000,color:#fdfcfc
+  style E fill:#000,stroke:#000,color:#fdfcfc
+  style F fill:#f5f3f1,stroke:#e5e5e5,color:#000
+  style G fill:#f5f3f1,stroke:#e5e5e5,color:#000
+    </div>
+  </div>
+
+
+  <!-- ===== 기술 스택 ===== -->
+  <div class="chart-section">
+    <div class="chart-title">사용 기술 스택</div>
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="label">프론트엔드</div>
+        <div class="value">Next.js 15</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">언어</div>
+        <div class="value">TypeScript</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">스타일</div>
+        <div class="value">Tailwind v4</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">데이터베이스</div>
+        <div class="value">Firestore</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">파일저장</div>
+        <div class="value">Firebase Storage</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">인증</div>
+        <div class="value">NextAuth + Google</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">배포</div>
+        <div class="value">Vercel</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">소스관리</div>
+        <div class="value">GitHub</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">디자인</div>
+        <div class="value">ElevenLabs 스타일</div>
+      </div>
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== STEP 0: 기획 ===== -->
+  <div class="phase">
+    <div class="phase-title">Step 0 — 기획: PRD 작성</div>
+    <div class="phase-desc">무엇을 만들 것인지 정의하는 단계</div>
+
+    <div class="step">
+      <span class="step-number">0-1</span>
+      <div class="step-title">요구사항 정리</div>
+      <div class="step-body">
+        어떤 제품을 만들지 한 문단으로 적는다.
+        padolet의 경우: "강사와 수강생이 QR코드로 입장해서, 포스트잇을 붙이고 실시간 채팅하는 교육용 보드"
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">0-2</span>
+      <div class="step-title">핵심 기능 목록 작성</div>
+      <div class="step-body">
+        &bull; QR + 6자리 코드 입장<br>
+        &bull; 포스트잇 5열 그리드 (실시간)<br>
+        &bull; 대화창 (우측 1/4)<br>
+        &bull; 파일/스크린샷 공유 (50MB, 20개)<br>
+        &bull; Admin 레포트 (MD 다운로드)
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">0-3</span>
+      <div class="step-title">기술스택 결정</div>
+      <div class="step-body">
+        DB를 Firestore로 선택한 이유: 실시간 동기화가 내장(onSnapshot)되어 있어 별도 WebSocket 서버가 불필요.
+        교육 세션 50명 이하 규모에서 무료 티어로 충분.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">0-4</span>
+      <div class="step-title">PRD 문서 작성</div>
+      <div class="step-body">
+        사용자 흐름, 화면 구성, 데이터 모델, 비기능 요구사항, 빌딩 계획을 하나의 <code>PRD.md</code> 파일로 정리.
+        이 문서가 전체 빌딩의 설계도 역할.
+      </div>
+    </div>
+  </div>
+
+
+  <!-- PRD → 구현 흐름 차트 -->
+  <div class="chart-section">
+    <div class="chart-title">PRD에서 구현까지의 의사결정 흐름</div>
+    <div class="mermaid">
+flowchart TD
+  A["요구사항 수집"] --> B{"실시간 동기화\n필요한가?"}
+  B -->|Yes| C["Firestore 선택\nonSnapshot 내장"]
+  B -->|No| D["MongoDB / PostgreSQL"]
+  C --> E{"서버 기능\n필요한가?"}
+  E -->|Yes: API Routes, OAuth| F["Next.js + Vercel"]
+  E -->|No: 정적 사이트| G["GitHub Pages"]
+  F --> H{"파일 업로드\n필요한가?"}
+  H -->|Yes| I["Firebase Storage"]
+  H -->|No| J["DB만 사용"]
+  I --> K["Google 생태계 통합\nFirestore + Storage + Auth"]
+
+  style A fill:#f5f3f1,stroke:#e5e5e5
+  style C fill:#000,stroke:#000,color:#fdfcfc
+  style F fill:#000,stroke:#000,color:#fdfcfc
+  style I fill:#000,stroke:#000,color:#fdfcfc
+  style K fill:#000,stroke:#000,color:#fdfcfc
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-label">왜 GitHub Pages가 아닌 Vercel인가</div>
+    GitHub Pages는 정적 파일(HTML/CSS/JS)만 호스팅한다. padolet은 Next.js의 API Routes(서버 기능),
+    NextAuth(Google OAuth 콜백), SSR(동적 라우팅)을 사용하므로 서버 실행이 가능한 Vercel이 필요하다.
+    GitHub은 소스 코드 저장소, Vercel은 빌드+실행+호스팅 담당.
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== STEP 1: 사전 준비 ===== -->
+  <div class="phase">
+    <div class="phase-title">Step 1 — 사전 준비: 외부 서비스 세팅</div>
+    <div class="phase-desc">코드 작성 전에 필요한 계정과 설정을 먼저 확보</div>
+
+    <div class="step">
+      <span class="step-number">1-1</span>
+      <div class="step-title">GitHub 레포 생성</div>
+      <div class="step-body">
+        <code>gh repo create juinjungsin/padolet --public</code> 명령으로 새 레포 생성.
+        소스 코드 버전 관리의 시작점.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">1-2</span>
+      <div class="step-title">Firebase 프로젝트 생성</div>
+      <div class="step-body">
+        Firebase Console에서 프로젝트 생성 → Firestore Database 생성 (테스트 모드) →
+        Firebase config 값(apiKey, projectId 등) 확보.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">1-3</span>
+      <div class="step-title">Google OAuth 클라이언트 생성</div>
+      <div class="step-body">
+        Google Cloud Console → 사용자 인증 정보 → OAuth 2.0 클라이언트 ID 생성.
+        리디렉션 URI: <code>http://localhost:3000/api/auth/callback/google</code>
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">1-4</span>
+      <div class="step-title">Firebase Storage 활성화</div>
+      <div class="step-body">
+        Firebase Console → Storage → "시작하기" → 테스트 모드.
+        파일 업로드 저장소로 사용.
+      </div>
+    </div>
+  </div>
+
+  <!-- 서비스 연결 구조 차트 -->
+  <div class="chart-section">
+    <div class="chart-title">외부 서비스 연결 구조</div>
+    <div class="mermaid">
+flowchart TB
+  subgraph 클라이언트["브라우저 (사용자)"]
+    A["Next.js 프론트엔드"]
+  end
+
+  subgraph Google["Google Cloud Platform"]
+    B["Firestore\n실시간 DB"]
+    C["Firebase Storage\n파일 저장"]
+    D["Google OAuth\n관리자 인증"]
+  end
+
+  subgraph Vercel["Vercel"]
+    E["Next.js 서버\nAPI Routes"]
+  end
+
+  subgraph GitHub["GitHub"]
+    F["소스 코드\n저장소"]
+  end
+
+  A <-->|"실시간 동기화\nonSnapshot"| B
+  A -->|"파일 업로드"| C
+  A -->|"로그인 요청"| E
+  E -->|"OAuth 콜백"| D
+  F -->|"push 시 자동 배포"| Vercel
+
+  style A fill:#fff,stroke:#e5e5e5
+  style B fill:#000,stroke:#000,color:#fdfcfc
+  style C fill:#000,stroke:#000,color:#fdfcfc
+  style D fill:#f5f3f1,stroke:#e5e5e5
+  style E fill:#f5f3f1,stroke:#e5e5e5
+  style F fill:#f5f3f1,stroke:#e5e5e5
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== STEP 2: 프로젝트 초기화 ===== -->
+  <div class="phase">
+    <div class="phase-title">Step 2 — Phase 1: 프로젝트 초기화</div>
+    <div class="phase-desc">뼈대를 세우고 디자인 토큰을 적용</div>
+
+    <div class="step">
+      <span class="step-number">2-1</span>
+      <div class="step-title">Next.js 프로젝트 생성</div>
+      <div class="step-body">
+        <code>npx create-next-app@latest padolet --typescript --tailwind --app --src-dir</code><br>
+        TypeScript + Tailwind CSS v4 + App Router 구조로 초기화.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">2-2</span>
+      <div class="step-title">의존성 설치</div>
+      <div class="step-body">
+        <code>npm install firebase next-auth qrcode react-icons</code><br>
+        핵심 라이브러리 4개만 추가. 최소한의 의존성으로 시작.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">2-3</span>
+      <div class="step-title">디자인 토큰 적용</div>
+      <div class="step-body">
+        ElevenLabs 스타일 레퍼런스(DESIGN.md)의 색상, 타이포그래피, 간격, 그림자를
+        <code>globals.css</code>의 Tailwind v4 <code>@theme</code> 블록으로 변환.
+        배경 #fdfcfc, 텍스트 #000000, 보조 #777169.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">2-4</span>
+      <div class="step-title">Firebase SDK 초기화</div>
+      <div class="step-body">
+        <code>src/lib/firebase.ts</code>: lazy init 방식으로 구현.
+        환경변수가 없어도 빌드가 깨지지 않도록 방어 코드 적용.
+        <code>.env.local</code>에 Firebase config 값 저장.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">2-5</span>
+      <div class="step-title">UI 컴포넌트 생성</div>
+      <div class="step-body">
+        Button (filled/ghost pill), Input (underline/contained), Card, Nav 컴포넌트 4개.
+        ElevenLabs 스타일의 9999px radius 버튼, 0px radius 입력 필드.
+      </div>
+    </div>
+  </div>
+
+  <!-- 프로젝트 구조 -->
+  <div class="file-tree">
+    <span class="folder">padolet/</span><br>
+    &nbsp;&nbsp;<span class="folder">src/</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">app/</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="highlight">page.tsx</span> ................. 홈 (코드 입력)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="highlight">layout.tsx</span> ............... 전역 레이아웃<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="highlight">globals.css</span> .............. 디자인 토큰<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">join/</span> ................... 입장 화면<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">board/[sessionId]/</span> ...... 메인 보드<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">admin/</span> .................. 관리 대시보드<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">api/auth/[...nextauth]/</span>.. OAuth 콜백<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">components/</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">ui/</span> ..................... Button, Input, Card<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">layout/</span> ................. Nav<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">board/</span> .................. PostGrid, PostInput<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">chat/</span> ................... ChatPanel<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">auth/</span> ................... AuthProvider<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">lib/</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="highlight">firebase.ts</span> ............. SDK 초기화<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="highlight">firestore.ts</span> ............ CRUD + 실시간 리스너<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="highlight">storage.ts</span> .............. 파일 업로드<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="highlight">session-code.ts</span> ......... 6자리 코드 생성<br>
+    &nbsp;&nbsp;<span class="file">.env.local</span> .................. 환경변수 (Git 제외)<br>
+    &nbsp;&nbsp;<span class="file">PRD.md</span> ...................... 제품 요구사항
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== STEP 3: 핵심 기능 ===== -->
+  <div class="phase">
+    <div class="phase-title">Step 3 — Phase 2~4: 핵심 기능 구현</div>
+    <div class="phase-desc">입장 → 포스트잇 → 대화 순서로 기능 빌딩</div>
+
+    <div class="step">
+      <span class="step-number">3-1</span>
+      <div class="step-title">입장 시스템 (Phase 2)</div>
+      <div class="step-body">
+        6자리 코드 생성 로직: 혼동 문자(0/O, 1/I/L) 제외한 영숫자 조합.<br>
+        QR코드: <code>qrcode</code> 라이브러리로 클라이언트에서 생성.<br>
+        입장 흐름: 코드 입력 → Firestore에서 세션 조회 → 이름 입력(또는 익명) → 참여자 등록.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">3-2</span>
+      <div class="step-title">포스트잇 보드 (Phase 3)</div>
+      <div class="step-body">
+        5열 반응형 그리드. Firestore <code>onSnapshot</code>으로 실시간 동기화.<br>
+        텍스트/링크/이미지 타입 자동 감지. Admin만 삭제 가능(hover 시 아이콘 표시).
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">3-3</span>
+      <div class="step-title">대화 패널 (Phase 4)</div>
+      <div class="step-body">
+        화면 우측 1/4 영역. 실시간 메시지 동기화.<br>
+        파일 첨부(드래그앤드롭, 클립보드 붙여넣기), 50MB/20개 제한 검증.
+      </div>
+    </div>
+  </div>
+
+  <!-- 사용자 흐름 차트 -->
+  <div class="chart-section">
+    <div class="chart-title">수강생 입장 흐름</div>
+    <div class="mermaid">
+flowchart LR
+  A["QR 스캔\n또는 URL 접속"] --> B["6자리 코드\n자동 입력"]
+  B --> C{"코드\n유효?"}
+  C -->|No| D["에러 표시\n재입력"]
+  C -->|Yes| E["이름 입력\n또는 익명"]
+  E --> F["Firestore에\n참여자 등록"]
+  F --> G["보드 진입\n실시간 동기화"]
+
+  D --> B
+
+  style A fill:#f5f3f1,stroke:#e5e5e5
+  style G fill:#000,stroke:#000,color:#fdfcfc
+    </div>
+  </div>
+
+  <!-- 보드 화면 구조 차트 -->
+  <div class="chart-section">
+    <div class="chart-title">보드 화면 레이아웃</div>
+    <div class="mermaid">
+block-beta
+  columns 4
+  nav["Nav: 로고 | 세션제목 | 참여자수 | 관리"]:4
+  board["포스트잇 그리드 (5열)\n좌측 3/4"]:3
+  chat["대화 패널\n우측 1/4"]:1
+
+  style nav fill:#f5f3f1,stroke:#e5e5e5
+  style board fill:#fff,stroke:#e5e5e5
+  style chat fill:#000,stroke:#000,color:#fdfcfc
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== STEP 4: 인증 ===== -->
+  <div class="phase">
+    <div class="phase-title">Step 4 — Phase 5: Google OAuth 인증</div>
+    <div class="phase-desc">Admin 로그인과 권한 분리</div>
+
+    <div class="step">
+      <span class="step-number">4-1</span>
+      <div class="step-title">NextAuth 설정</div>
+      <div class="step-body">
+        <code>src/app/api/auth/[...nextauth]/route.ts</code>에 Google Provider 등록.<br>
+        <code>AuthProvider</code>로 전체 앱을 래핑하여 세션 상태 공유.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">4-2</span>
+      <div class="step-title">Admin 대시보드 보호</div>
+      <div class="step-body">
+        /admin 페이지: 미인증 시 Google 로그인 화면, 인증 후 세션 관리 대시보드.<br>
+        <code>useSession()</code> 훅으로 인증 상태 확인.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">4-3</span>
+      <div class="step-title">권한 분리</div>
+      <div class="step-body">
+        보드 페이지에서 <code>authSession.user.id === session.createdBy</code> 비교로 Admin 판별.<br>
+        Admin만 포스트잇 삭제 가능, 수강생은 작성만 가능.
+      </div>
+    </div>
+  </div>
+
+  <!-- 인증 흐름 차트 -->
+  <div class="chart-section">
+    <div class="chart-title">인증 흐름 비교</div>
+    <div class="mermaid">
+flowchart TB
+  subgraph 수강생["수강생 (로그인 불필요)"]
+    S1["코드 입력"] --> S2["이름 입력"] --> S3["보드 진입"]
+  end
+
+  subgraph 강사["강사 (Google OAuth)"]
+    T1["강사 로그인 클릭"] --> T2["Google 로그인"] --> T3["OAuth 콜백\n/api/auth/callback/google"]
+    T3 --> T4["Admin 대시보드"]
+    T4 --> T5["세션 생성\nQR + 6자리 코드"]
+  end
+
+  style S3 fill:#f5f3f1,stroke:#e5e5e5
+  style T4 fill:#000,stroke:#000,color:#fdfcfc
+  style T5 fill:#000,stroke:#000,color:#fdfcfc
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== STEP 5: 파일 업로드 ===== -->
+  <div class="phase">
+    <div class="phase-title">Step 5 — 파일 업로드 (Firebase Storage)</div>
+    <div class="phase-desc">이미지, 문서, 스크린샷 공유 기능</div>
+
+    <div class="step">
+      <span class="step-number">5-1</span>
+      <div class="step-title">Storage 유틸리티 작성</div>
+      <div class="step-body">
+        <code>src/lib/storage.ts</code>: 업로드 진행률 콜백, 50MB 단일 파일 제한, 동시 20개 제한 검증.
+        저장 경로: <code>padolet/{sessionId}/{timestamp}_{filename}</code>
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">5-2</span>
+      <div class="step-title">3가지 업로드 방식</div>
+      <div class="step-body">
+        &bull; 클립 아이콘 클릭 → 파일 선택<br>
+        &bull; 드래그앤드롭 → 대화창에 파일 끌어 놓기<br>
+        &bull; Ctrl+V → 스크린샷 클립보드 붙여넣기
+      </div>
+    </div>
+  </div>
+
+  <!-- 파일 업로드 흐름 -->
+  <div class="chart-section">
+    <div class="chart-title">파일 업로드 처리 흐름</div>
+    <div class="mermaid">
+flowchart LR
+  A["파일 선택\n드래그앤드롭\nCtrl+V"] --> B{"검증"}
+  B -->|"50MB 초과"| C["경고 메시지"]
+  B -->|"20개 초과"| C
+  B -->|"통과"| D["Firebase Storage\n업로드"]
+  D --> E["진행률 표시\n0~100%"]
+  E --> F["다운로드 URL 획득"]
+  F --> G["Firestore에\n메시지 저장"]
+
+  style D fill:#000,stroke:#000,color:#fdfcfc
+  style G fill:#000,stroke:#000,color:#fdfcfc
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== STEP 6: 배포 ===== -->
+  <div class="phase">
+    <div class="phase-title">Step 6 — Phase 6: 배포</div>
+    <div class="phase-desc">로컬에서 프로덕션으로</div>
+
+    <div class="step">
+      <span class="step-number">6-1</span>
+      <div class="step-title">반응형 모바일 최적화</div>
+      <div class="step-body">
+        포스트잇 그리드: 2열(모바일) → 5열(데스크탑).<br>
+        보드 페이지: 모바일에서 하단 탭(보드/대화) 전환 방식으로 변경.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">6-2</span>
+      <div class="step-title">Vercel 연결 + 환경변수</div>
+      <div class="step-body">
+        <code>npx vercel link</code>로 프로젝트 연결.<br>
+        환경변수 10개 설정: Firebase 6개 + NextAuth 2개 + Google OAuth 2개.<br>
+        <code>npx vercel --prod</code>로 프로덕션 배포.
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="step-number">6-3</span>
+      <div class="step-title">커스텀 도메인 연결</div>
+      <div class="step-body">
+        <code>npx vercel domains add juinjungsin.site</code><br>
+        가비아 DNS에 A 레코드 추가: <code>@ → 76.76.21.21</code><br>
+        Google OAuth 리디렉션 URI에 프로덕션 도메인 추가.
+      </div>
+    </div>
+  </div>
+
+  <!-- 배포 파이프라인 차트 -->
+  <div class="chart-section">
+    <div class="chart-title">배포 파이프라인</div>
+    <div class="mermaid">
+flowchart LR
+  A["코드 수정"] --> B["git add\ngit commit"]
+  B --> C["git push\norigin main"]
+  C --> D["Vercel\n자동 빌드"]
+  D --> E["프로덕션\n배포 완료"]
+  E --> F["padolet.vercel.app\njuinjungsin.site"]
+
+  style D fill:#000,stroke:#000,color:#fdfcfc
+  style F fill:#000,stroke:#000,color:#fdfcfc
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== 트러블슈팅 ===== -->
+  <div class="phase">
+    <div class="phase-title">빌딩 중 만난 문제와 해결</div>
+    <div class="phase-desc">실제 빌딩 과정에서 발생한 에러들</div>
+
+    <div class="error-box">
+      <div class="error-label">에러 1 — Firebase auth/invalid-api-key</div>
+      원인: 환경변수(.env.local) 없이 빌드하면 Firebase SDK가 빈 API key로 초기화 시도.<br>
+      해결: <code>firebase.ts</code>를 lazy init 방식으로 변경. config가 없으면 초기화를 지연시켜 빌드 에러 방지.
+    </div>
+
+    <div class="error-box">
+      <div class="error-label">에러 2 — Firestore 복합 인덱스 필요</div>
+      원인: <code>createdBy</code> + <code>createdAt</code> 복합 쿼리에 인덱스가 없음.<br>
+      해결: 에러 메시지에 포함된 Firebase Console 링크를 열어 "인덱스 만들기" 클릭. 1~2분 대기.
+    </div>
+
+    <div class="error-box">
+      <div class="error-label">에러 3 — git commit Author identity unknown</div>
+      원인: 새 폴더에서 git init 후 user.name/email 미설정.<br>
+      해결: <code>git config user.name "이름"</code> + <code>git config user.email "이메일"</code>
+    </div>
+
+    <div class="error-box">
+      <div class="error-label">에러 4 — 400 redirect_uri_mismatch</div>
+      원인: Google OAuth 클라이언트에 프로덕션 도메인의 리디렉션 URI가 등록되지 않음.<br>
+      해결: Google Cloud Console에서 승인된 리디렉션 URI에 프로덕션 URL 추가.
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== 데이터 모델 ===== -->
+  <div class="chart-section">
+    <div class="chart-title">Firestore 데이터 모델</div>
+    <div class="mermaid">
+erDiagram
+  sessions {
+    string title
+    string code
+    string createdBy
+    timestamp createdAt
+    number participantCount
+    boolean requireGoogleLogin
+  }
+  participants {
+    string name
+    boolean isAnonymous
+    boolean isOnline
+    timestamp joinedAt
+  }
+  posts {
+    string authorId
+    string authorName
+    string content
+    string type
+    string fileUrl
+    number gridIndex
+    timestamp createdAt
+  }
+  messages {
+    string authorId
+    string authorName
+    string content
+    string type
+    string fileUrl
+    timestamp createdAt
+  }
+
+  sessions ||--o{ participants : "하위 컬렉션"
+  sessions ||--o{ posts : "하위 컬렉션"
+  sessions ||--o{ messages : "하위 컬렉션"
+    </div>
+  </div>
+
+
+  <hr class="divider">
+
+
+  <!-- ===== 타임라인 ===== -->
+  <div class="chart-section">
+    <div class="chart-title">빌딩 타임라인 (2026-05-02)</div>
+    <div class="mermaid">
+gantt
+  title padolet 빌딩 타임라인
+  dateFormat HH:mm
+  axisFormat %H:%M
+
+  section 기획
+  PRD 작성           :done, 17:49, 15min
+
+  section Phase 1
+  프로젝트 초기화     :done, 18:05, 10min
+  디자인 토큰 적용    :done, 18:15, 5min
+
+  section Phase 2-4
+  입장 시스템         :done, 18:20, 10min
+  포스트잇 보드       :done, 18:30, 10min
+  대화 패널           :done, 18:40, 10min
+
+  section 설정
+  Firebase 연결       :done, 18:50, 10min
+  Firestore 인덱스    :done, 19:00, 5min
+
+  section Phase 5
+  Google OAuth        :done, 19:05, 15min
+
+  section Phase 6
+  파일 업로드         :done, 19:20, 10min
+  반응형 최적화       :done, 19:30, 10min
+  Vercel 배포         :done, 19:40, 10min
+    </div>
+  </div>
+
+
+  <!-- ===== 최종 산출물 ===== -->
+  <div class="chart-section">
+    <div class="chart-title">최종 산출물</div>
+
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="label">소스 코드</div>
+        <div class="value">github.com/juinjungsin/padolet</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">프로덕션</div>
+        <div class="value">padolet.vercel.app</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">커스텀 도메인</div>
+        <div class="value">juinjungsin.site</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">커밋</div>
+        <div class="value">3개</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">파일</div>
+        <div class="value">34개</div>
+      </div>
+      <div class="tech-card">
+        <div class="label">빌딩 시간</div>
+        <div class="value">~2시간</div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="tip">
+    <div class="tip-label">초보자를 위한 요약</div>
+    이 프로젝트의 핵심은 "Google 생태계 통합"이다.
+    Firestore(DB) + Firebase Storage(파일) + Google OAuth(인증)를 하나의 Firebase 프로젝트로 묶고,
+    Next.js(프론트+백엔드)를 Vercel에 배포하면 서버 관리 없이 풀스택 웹앱이 동작한다.
+    전체 인프라 비용: 무료 티어 범위 내.
+  </div>
+
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'neutral',
+    fontFamily: 'Inter, sans-serif',
+    flowchart: { curve: 'basis', padding: 16 },
+    gantt: { fontSize: 12 }
+  });
+</script>
+
+</body>
+</html>

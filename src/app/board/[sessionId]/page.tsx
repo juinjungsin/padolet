@@ -73,7 +73,7 @@ export default function BoardPage() {
     <div className="flex flex-col h-screen bg-eggshell relative">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
-        style={{ backgroundImage: "url('/board-bg.png')", opacity: 0.1 }}
+        style={{ backgroundImage: "url('/board-bg.png')", opacity: 0.25 }}
       />
       <div className="relative z-10 flex flex-col h-full">
       <Nav

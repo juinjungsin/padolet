@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { RiUserLine, RiFileTextLine } from "react-icons/ri";
 
 interface NavProps {
@@ -14,7 +15,8 @@ interface NavProps {
 export default function Nav({ sessionTitle, sessionCode, sessionId, participantCount, isAdmin }: NavProps) {
   return (
     <nav className="h-11 md:h-9 border-b border-chalk bg-eggshell flex items-center px-4 md:px-6 max-w-[1200px] mx-auto w-full">
-      <Link href="/" className="font-display text-lg tracking-tight text-obsidian" style={{ fontWeight: 300 }}>
+      <Link href="/" className="flex items-center gap-1.5 font-display text-lg tracking-tight text-obsidian" style={{ fontWeight: 300 }}>
+        <Image src="/icon.png" alt="padolet" width={24} height={24} className="rounded-md" />
         padolet
       </Link>
 

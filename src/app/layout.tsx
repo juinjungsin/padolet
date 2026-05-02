@@ -18,6 +18,10 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: "padolet",
   description: "교육용 실시간 커뮤니케이션 보드",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card from "@/components/ui/Card";
@@ -25,6 +26,7 @@ export default function Home() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center bg-eggshell px-4">
       <div className="text-center mb-12">
+        <Image src="/icon.png" alt="padolet" width={80} height={80} className="mx-auto mb-4 rounded-2xl" />
         <h1
           className="font-display text-5xl text-obsidian mb-3"
           style={{ fontWeight: 300, letterSpacing: "-0.96px", lineHeight: 1.08 }}

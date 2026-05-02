@@ -5,6 +5,26 @@ import { Post, onPosts, deletePost } from "@/lib/firestore";
 import Card from "@/components/ui/Card";
 import { RiDeleteBinLine, RiFileCopyLine } from "react-icons/ri";
 
+function renderTextWithLinks(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/gi);
+  return parts.map((part, i) => {
+    if (/^https?:\/\//i.test(part)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-signal-blue break-all hover:underline"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 interface PostGridProps {
   sessionId: string;
   isAdmin: boolean;
@@ -68,7 +88,7 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
           </a>
         );
       default:
-        return <p className="text-sm text-obsidian whitespace-pre-wrap">{post.content}</p>;
+        return <p className="text-sm text-obsidian whitespace-pre-wrap">{renderTextWithLinks(post.content)}</p>;
     }
   }
 

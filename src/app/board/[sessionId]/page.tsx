@@ -70,7 +70,12 @@ export default function BoardPage() {
   const isAdmin = !!adminId && session?.createdBy === adminId;
 
   return (
-    <div className="flex flex-col h-screen bg-eggshell">
+    <div className="flex flex-col h-screen bg-eggshell relative">
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
+        style={{ backgroundImage: "url('/board-bg.png')", opacity: 0.1 }}
+      />
+      <div className="relative z-10 flex flex-col h-full">
       <Nav
         sessionTitle={session?.title}
         sessionCode={session?.code}
@@ -142,6 +147,7 @@ export default function BoardPage() {
             대화
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

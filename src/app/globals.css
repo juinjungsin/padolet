@@ -98,3 +98,26 @@ body {
   font-optical-sizing: auto;
   font-variation-settings: "SOFT" 50, "WONK" 0;
 }
+
+/* 인쇄 / PDF 내보내기 — 레포트 페이지에서 nav, footer, 액션바를 숨기고 카드만 출력 */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  nav,
+  footer,
+  [data-print-hide] {
+    display: none !important;
+  }
+  .shadow-\[--shadow-card\] {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+  .bg-parchment {
+    background-color: #ffffff !important;
+  }
+  @page {
+    margin: 16mm;
+  }
+}

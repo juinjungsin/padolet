@@ -1,9 +1,22 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Message, onMessages, addMessage } from "@/lib/firestore";
+import {
+  Message,
+  onMessages,
+  addMessage,
+  containsBannedWord,
+  isNameBlocked,
+  blockUserName,
+} from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
-import { RiSendPlaneFill, RiAttachmentLine, RiFileCopyLine, RiReplyLine } from "react-icons/ri";
+import {
+  RiSendPlaneFill,
+  RiAttachmentLine,
+  RiFileCopyLine,
+  RiReplyLine,
+  RiUserForbidLine,
+} from "react-icons/ri";
 
 function renderTextWithLinks(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/gi);
@@ -35,18 +48,31 @@ interface ChatPanelProps {
   sessionId: string;
   authorId: string;
   authorName: string;
+  isAdmin?: boolean;
+  bannedWords?: string[];
+  blockedNames?: string[];
 }
 
-export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanelProps) {
+export default function ChatPanel({
+  sessionId,
+  authorId,
+  authorName,
+  isAdmin = false,
+  bannedWords = [],
+  blockedNames = [],
+}: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
   const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress>>({});
+  const [sendError, setSendError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const blocked = isNameBlocked(authorName, blockedNames);
 
   useEffect(() => {
     const unsub = onMessages(sessionId, setMessages);
@@ -66,6 +92,18 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || sending) return;
+
+    if (blocked) {
+      setSendError("관리자에 의해 차단된 사용자입니다.");
+      return;
+    }
+    const hit = containsBannedWord(input, bannedWords);
+    if (hit) {
+      setSendError(`금칙어 "${hit}" 가 포함되어 게시할 수 없습니다.`);
+      return;
+    }
+    setSendError("");
+
     setSending(true);
 
     let content = input.trim();
@@ -82,6 +120,13 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
     setInput("");
     setReplyTo(null);
     setSending(false);
+  }
+
+  async function handleBlock(name: string) {
+    if (!isAdmin) return;
+    if (!confirm(`"${name}" 사용자를 차단하시겠습니까? 차단된 사용자는 새 메시지를 보낼 수 없습니다.`))
+      return;
+    await blockUserName(sessionId, name);
   }
 
   async function uploadAndSendFile(file: File) {
@@ -266,6 +311,16 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
                 <RiReplyLine size={10} />
                 Reply
               </button>
+              {isAdmin && msg.authorId !== authorId && (
+                <button
+                  onClick={() => handleBlock(msg.authorName)}
+                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-terracotta cursor-pointer transition-colors"
+                  title={`${msg.authorName} 차단`}
+                >
+                  <RiUserForbidLine size={10} />
+                  Block
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -300,32 +355,49 @@ export default function ChatPanel({ sessionId, authorId, authorName }: ChatPanel
         </div>
       )}
 
-      <form onSubmit={handleSend} onPaste={handlePaste} className="p-3 border-t border-chalk flex items-center gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <button type="button" onClick={handleFileClick} className="text-slate hover:text-obsidian cursor-pointer">
-          <RiAttachmentLine size={18} />
-        </button>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={replyTo ? `${replyTo.authorName}에게 답장...` : "메시지 입력..."}
-          className="flex-1 bg-transparent text-sm text-obsidian placeholder:text-slate outline-none"
-        />
-        <button
-          type="submit"
-          disabled={sending || !input.trim()}
-          className="text-obsidian disabled:text-fog cursor-pointer"
-        >
-          <RiSendPlaneFill size={18} />
-        </button>
-      </form>
+      {sendError && (
+        <div className="px-4 py-2 border-t border-silver-mist bg-buttercup">
+          <p className="text-xs text-ochre">{sendError}</p>
+        </div>
+      )}
+
+      {blocked ? (
+        <div className="p-3 border-t border-silver-mist bg-vellum text-center">
+          <p className="text-xs text-terracotta font-semibold">
+            관리자에 의해 채팅이 차단되었습니다.
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSend} onPaste={handlePaste} className="p-3 border-t border-silver-mist flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button type="button" onClick={handleFileClick} className="text-slate-text hover:text-graphite cursor-pointer">
+            <RiAttachmentLine size={18} />
+          </button>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (sendError) setSendError("");
+            }}
+            placeholder={replyTo ? `${replyTo.authorName}에게 답장...` : "메시지 입력..."}
+            className="flex-1 bg-transparent text-sm text-ink placeholder:text-ash-text outline-none"
+          />
+          <button
+            type="submit"
+            disabled={sending || !input.trim()}
+            className="text-graphite disabled:text-ash-text cursor-pointer"
+          >
+            <RiSendPlaneFill size={18} />
+          </button>
+        </form>
+      )}
     </div>
   );
 }

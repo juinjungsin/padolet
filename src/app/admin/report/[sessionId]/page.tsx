@@ -105,6 +105,11 @@ export default function ReportPage() {
     URL.revokeObjectURL(url);
   }
 
+  function exportPdf() {
+    // 브라우저 인쇄 다이얼로그 → "PDF로 저장" 선택. 인쇄용 CSS는 globals.css의 @media print
+    window.print();
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
@@ -124,12 +129,15 @@ export default function ReportPage() {
           >
             {session?.title} — 레포트
           </h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap" data-print-hide>
             <Button variant="ghost" onClick={() => router.push(`/board/${sessionId}`)}>
               보드로 돌아가기
             </Button>
             <Button variant="ghost" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy"}
+            </Button>
+            <Button variant="ghost" onClick={exportPdf}>
+              PDF 내보내기
             </Button>
             <Button onClick={downloadReport}>MD 다운로드</Button>
           </div>
@@ -180,12 +188,15 @@ export default function ReportPage() {
           </Card>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-silver-mist flex items-center justify-start gap-2">
+        <div className="mt-10 pt-6 border-t border-silver-mist flex items-center justify-start gap-2 flex-wrap" data-print-hide>
           <Button variant="ghost" onClick={() => router.push(`/board/${sessionId}`)}>
             보드로 돌아가기
           </Button>
           <Button variant="ghost" onClick={handleCopy}>
             {copied ? "Copied!" : "Copy"}
+          </Button>
+          <Button variant="ghost" onClick={exportPdf}>
+            PDF 내보내기
           </Button>
           <Button onClick={downloadReport}>MD 다운로드</Button>
         </div>

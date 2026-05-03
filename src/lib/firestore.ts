@@ -18,6 +18,13 @@ import { db as getDb } from "./firebase";
 
 // --- 타입 정의 ---
 
+export interface Announcement {
+  content: string;
+  active: boolean;
+  createdAt: Timestamp;
+  id: string; // 동일 내용 재공지 구분용
+}
+
 export interface Session {
   id?: string;
   title: string;
@@ -27,6 +34,9 @@ export interface Session {
   createdAt: Timestamp;
   participantCount: number;
   requireGoogleLogin: boolean;
+  bannedWords?: string[];
+  blockedNames?: string[];
+  announcement?: Announcement | null;
 }
 
 export interface Participant {
@@ -98,6 +108,95 @@ export async function getSessionsByAdmin(adminId: string) {
 
 export async function updateSession(sessionId: string, data: Partial<Session>) {
   await updateDoc(doc(getDb(), "sessions", sessionId), data);
+}
+
+export function onSession(
+  sessionId: string,
+  callback: (session: (Session & { id: string }) | null) => void
+) {
+  return onSnapshot(doc(getDb(), "sessions", sessionId), (snap) => {
+    if (!snap.exists()) {
+      callback(null);
+      return;
+    }
+    callback({ id: snap.id, ...snap.data() } as Session & { id: string });
+  });
+}
+
+// --- 모더레이션: 금칙어 ---
+
+export async function addBannedWord(sessionId: string, word: string) {
+  const trimmed = word.trim().toLowerCase();
+  if (!trimmed) return;
+  const session = await getSession(sessionId);
+  const current = session?.bannedWords || [];
+  if (current.includes(trimmed)) return;
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    bannedWords: [...current, trimmed],
+  });
+}
+
+export async function removeBannedWord(sessionId: string, word: string) {
+  const session = await getSession(sessionId);
+  const current = session?.bannedWords || [];
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    bannedWords: current.filter((w) => w !== word),
+  });
+}
+
+export function containsBannedWord(text: string, bannedWords: string[] = []): string | null {
+  if (!text || bannedWords.length === 0) return null;
+  const lower = text.toLowerCase();
+  for (const w of bannedWords) {
+    if (lower.includes(w)) return w;
+  }
+  return null;
+}
+
+// --- 모더레이션: 사용자 차단 (이름 기준) ---
+
+export async function blockUserName(sessionId: string, name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const session = await getSession(sessionId);
+  const current = session?.blockedNames || [];
+  if (current.includes(trimmed)) return;
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    blockedNames: [...current, trimmed],
+  });
+}
+
+export async function unblockUserName(sessionId: string, name: string) {
+  const session = await getSession(sessionId);
+  const current = session?.blockedNames || [];
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    blockedNames: current.filter((n) => n !== name),
+  });
+}
+
+export function isNameBlocked(name: string, blockedNames: string[] = []): boolean {
+  return blockedNames.includes(name);
+}
+
+// --- 공지 ---
+
+export async function publishAnnouncement(sessionId: string, content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) return;
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    announcement: {
+      content: trimmed,
+      active: true,
+      createdAt: Timestamp.now(),
+      id: `ann_${Date.now()}`,
+    },
+  });
+}
+
+export async function dismissAnnouncement(sessionId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    "announcement.active": false,
+  });
 }
 
 // --- 참여자 ---

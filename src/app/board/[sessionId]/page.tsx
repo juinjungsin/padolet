@@ -7,7 +7,9 @@ import Nav from "@/components/layout/Nav";
 import PostGrid from "@/components/board/PostGrid";
 import PostInput from "@/components/board/PostInput";
 import ChatPanel from "@/components/chat/ChatPanel";
-import { getSession, onParticipants, onPosts, Session } from "@/lib/firestore";
+import AnnouncementModal from "@/components/board/AnnouncementModal";
+import ModerationPanel from "@/components/admin/ModerationPanel";
+import { getSession, onParticipants, onPosts, onSession, Session } from "@/lib/firestore";
 import { RiChat3Line, RiStickyNoteLine } from "react-icons/ri";
 
 interface ParticipantInfo {
@@ -27,6 +29,7 @@ export default function BoardPage() {
   const [postCount, setPostCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [mobileTab, setMobileTab] = useState<"board" | "chat">("board");
+  const [showModeration, setShowModeration] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`padolet_${sessionId}`);
@@ -58,6 +61,14 @@ export default function BoardPage() {
     return () => unsub();
   }, [sessionId]);
 
+  useEffect(() => {
+    if (!sessionId) return;
+    const unsub = onSession(sessionId, (s) => {
+      if (s) setSession(s);
+    });
+    return () => unsub();
+  }, [sessionId]);
+
   if (loading || !participant) {
     return (
       <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
@@ -68,6 +79,8 @@ export default function BoardPage() {
 
   const adminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
   const isAdmin = !!adminId && session?.createdBy === adminId;
+  const bannedWords = session?.bannedWords || [];
+  const blockedNames = session?.blockedNames || [];
 
   return (
     <div className="flex flex-col h-screen bg-parchment relative">
@@ -82,6 +95,7 @@ export default function BoardPage() {
         sessionId={sessionId}
         participantCount={participantCount}
         isAdmin={isAdmin}
+        onOpenModeration={isAdmin ? () => setShowModeration(true) : undefined}
       />
 
       {/* 데스크탑: 좌 3/4 보드 + 우 1/4 채팅 */}
@@ -92,6 +106,8 @@ export default function BoardPage() {
             authorId={participant.participantId}
             authorName={participant.name}
             currentPostCount={postCount}
+            bannedWords={bannedWords}
+            blockedNames={blockedNames}
           />
           <PostGrid sessionId={sessionId} isAdmin={isAdmin} />
         </div>
@@ -100,6 +116,9 @@ export default function BoardPage() {
             sessionId={sessionId}
             authorId={participant.participantId}
             authorName={participant.name}
+            isAdmin={isAdmin}
+            bannedWords={bannedWords}
+            blockedNames={blockedNames}
           />
         </div>
       </div>
@@ -149,6 +168,16 @@ export default function BoardPage() {
         </div>
       </div>
       </div>
+
+      <AnnouncementModal sessionId={sessionId} announcement={session?.announcement} />
+
+      {showModeration && session && (
+        <ModerationPanel
+          sessionId={sessionId}
+          session={session}
+          onClose={() => setShowModeration(false)}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { RiUserLine, RiFileTextLine, RiTimerLine } from "react-icons/ri";
+import { RiUserLine, RiFileTextLine, RiTimerLine, RiShieldUserLine } from "react-icons/ri";
 
 interface NavProps {
   sessionTitle?: string;
@@ -10,9 +10,17 @@ interface NavProps {
   sessionId?: string;
   participantCount?: number;
   isAdmin?: boolean;
+  onOpenModeration?: () => void;
 }
 
-export default function Nav({ sessionTitle, sessionCode, sessionId, participantCount, isAdmin }: NavProps) {
+export default function Nav({
+  sessionTitle,
+  sessionCode,
+  sessionId,
+  participantCount,
+  isAdmin,
+  onOpenModeration,
+}: NavProps) {
   return (
     <nav className="h-[72px] bg-parchment flex items-center px-4 md:px-8 max-w-[1200px] mx-auto w-full">
       <Link
@@ -60,6 +68,16 @@ export default function Nav({ sessionTitle, sessionCode, sessionId, participantC
             <RiFileTextLine size={14} />
             <span className="hidden sm:inline">레포트</span>
           </Link>
+        )}
+
+        {isAdmin && onOpenModeration && (
+          <button
+            onClick={onOpenModeration}
+            className="inline-flex items-center gap-1 text-xs text-slate-text hover:text-graphite transition-colors cursor-pointer"
+          >
+            <RiShieldUserLine size={14} />
+            <span className="hidden sm:inline">모더레이션</span>
+          </button>
         )}
 
         {isAdmin && (

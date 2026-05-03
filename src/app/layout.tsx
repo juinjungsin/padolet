@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import AuthProvider from "@/components/auth/AuthProvider";
 import Footer from "@/components/layout/Footer";
+import AgentationToolbar from "@/components/dev/AgentationToolbar";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -45,6 +46,7 @@ export default function RootLayout({
           {children}
           <Footer />
         </AuthProvider>
+        <AgentationToolbar />
       </body>
     </html>
   );

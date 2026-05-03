@@ -7,7 +7,7 @@ import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { createSession, getSessionsByAdmin, Session } from "@/lib/firestore";
+import { createSession, deleteSession, getSessionsByAdmin, Session } from "@/lib/firestore";
 import { generateSessionCode } from "@/lib/session-code";
 import QRCode from "qrcode";
 
@@ -22,6 +22,8 @@ export default function AdminPage() {
   const [description, setDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [qrModal, setQrModal] = useState<{ code: string; qrUrl: string; sessionId: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<(Session & { id: string }) | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const adminId = (session?.user as Record<string, unknown>)?.id as string | undefined;
 
@@ -61,6 +63,19 @@ export default function AdminPage() {
     const joinUrl = `https://${DOMAIN}/join?code=${code}`;
     const qrUrl = await QRCode.toDataURL(joinUrl, { width: 280, margin: 2 });
     setQrModal({ code, qrUrl, sessionId });
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteSession(deleteTarget.id);
+      setDeleteTarget(null);
+      await loadSessions();
+    } catch {
+      alert("삭제에 실패했습니다.");
+    }
+    setDeleting(false);
   }
 
   // 로딩 중
@@ -157,7 +172,7 @@ export default function AdminPage() {
                   코드: {s.code} · 참여자: {s.participantCount}명
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button variant="ghost" onClick={() => showQR(s.code, s.id)}>
                   QR
                 </Button>
@@ -167,11 +182,56 @@ export default function AdminPage() {
                 <Button variant="ghost" onClick={() => router.push(`/admin/report/${s.id}`)}>
                   레포트
                 </Button>
+                <Button variant="ghost" onClick={() => setDeleteTarget(s)}>
+                  삭제
+                </Button>
               </div>
             </Card>
           ))}
         </div>
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-graphite/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <h2
+              className="font-display text-2xl text-graphite mb-3"
+              style={{ fontWeight: 700, letterSpacing: "-0.5px" }}
+            >
+              세션 삭제
+            </h2>
+            <p className="text-sm text-ink mb-2">
+              <span className="font-semibold">{deleteTarget.title}</span>
+              <span className="text-slate-text"> · {deleteTarget.code}</span>
+            </p>
+            <p className="text-sm text-slate-text mb-4">
+              포스트잇, 대화, 참여자 정보가 모두 영구 삭제됩니다. 복구할 수 없습니다.
+            </p>
+            <div className="bg-buttercup border border-ochre/20 rounded-lg p-3 mb-5">
+              <p className="text-sm text-ochre font-semibold mb-1">
+                삭제 전 레포트를 다운받으시겠습니까?
+              </p>
+              <p className="text-xs text-ochre/80">
+                필요하면 먼저 레포트 페이지로 이동해 MD/PDF로 보관하세요.
+              </p>
+              <button
+                onClick={() => router.push(`/admin/report/${deleteTarget.id}`)}
+                className="mt-2 inline-flex items-center text-xs font-semibold text-ochre underline cursor-pointer hover:text-graphite"
+              >
+                레포트 페이지 열기 →
+              </button>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outlined" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                취소
+              </Button>
+              <Button onClick={handleConfirmDelete} disabled={deleting}>
+                {deleting ? "삭제 중..." : "확인하고 삭제"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {qrModal && (
         <div className="fixed inset-0 bg-graphite/60 backdrop-blur-sm flex items-center justify-center z-50">

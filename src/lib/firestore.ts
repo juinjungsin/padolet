@@ -12,6 +12,7 @@ import {
   onSnapshot,
   serverTimestamp,
   increment,
+  writeBatch,
   Timestamp,
 } from "firebase/firestore";
 import { db as getDb } from "./firebase";
@@ -109,6 +110,25 @@ export async function getSessionsByAdmin(adminId: string) {
 
 export async function updateSession(sessionId: string, data: Partial<Session>) {
   await updateDoc(doc(getDb(), "sessions", sessionId), data);
+}
+
+// 세션 + 하위 컬렉션(participants/posts/messages) 일괄 삭제
+export async function deleteSession(sessionId: string) {
+  const db = getDb();
+  const subcollections = ["participants", "posts", "messages"];
+
+  for (const sub of subcollections) {
+    const snap = await getDocs(collection(db, "sessions", sessionId, sub));
+    // Firestore writeBatch는 최대 500 ops — 안전하게 400씩 분할
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += 400) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+
+  await deleteDoc(doc(db, "sessions", sessionId));
 }
 
 export function onSession(

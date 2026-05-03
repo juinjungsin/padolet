@@ -103,7 +103,7 @@ export default function PostInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 border-b border-silver-mist">
+    <form onSubmit={handleSubmit} className="p-4 pb-safe border-b border-silver-mist">
       <div className="bg-buttercup border border-ochre/20 rounded-lg p-4 shadow-[--shadow-card]">
         <textarea
           value={content}

@@ -91,6 +91,17 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-feature-settings: "ss01", "ss02";
+  /* iOS Safari 안전 영역 보정 */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* 모바일에서 채팅/포스트잇 입력창이 가상 키보드에 가려지지 않도록 하단 안전영역 보정 */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+.mb-safe {
+  margin-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
 /* The display face wants a touch of optical sizing on Fraunces */

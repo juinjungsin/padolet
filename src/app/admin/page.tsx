@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import AdminManagementPanel from "@/components/admin/AdminManagementPanel";
+import Modal from "@/components/ui/Modal";
 import {
   createSession,
   deleteSession,
@@ -299,9 +300,14 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-graphite/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md p-6">
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        className="max-w-md"
+        showClose={!deleting}
+      >
+        {deleteTarget && (
+          <div className="p-6">
             <h2
               className="font-display text-2xl text-graphite mb-3"
               style={{ fontWeight: 700, letterSpacing: "-0.5px" }}
@@ -337,13 +343,18 @@ export default function AdminPage() {
                 {deleting ? "삭제 중..." : "확인하고 삭제"}
               </Button>
             </div>
-          </Card>
-        </div>
-      )}
+          </div>
+        )}
+      </Modal>
 
-      {qrModal && (
-        <div className="fixed inset-0 bg-graphite/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="p-10 text-center max-w-md">
+      <Modal
+        open={!!qrModal}
+        onClose={() => setQrModal(null)}
+        className="max-w-md"
+        showClose
+      >
+        {qrModal && (
+          <div className="p-10 text-center">
             <h2
               className="font-display text-5xl text-graphite mb-6 font-mono"
               style={{ fontWeight: 700, letterSpacing: "0.2em", lineHeight: 1.08 }}
@@ -355,9 +366,9 @@ export default function AdminPage() {
               QR 스캔 또는 코드를 입력하여 참여
             </p>
             <Button onClick={() => setQrModal(null)}>닫기</Button>
-          </Card>
-        </div>
-      )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

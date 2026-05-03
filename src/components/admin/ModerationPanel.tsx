@@ -11,6 +11,7 @@ import {
 } from "@/lib/firestore";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Modal from "@/components/ui/Modal";
 import { RiCloseLine, RiDeleteBinLine } from "react-icons/ri";
 
 type Tab = "words" | "users" | "announce";
@@ -57,25 +58,29 @@ export default function ModerationPanel({ sessionId, session, onClose }: Moderat
   }
 
   return (
-    <div className="fixed inset-0 bg-graphite/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-chalk-card border border-silver-mist rounded-3xl shadow-[--shadow-card] w-full max-w-lg max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-silver-mist">
-          <h2
-            className="font-display text-2xl text-graphite"
-            style={{ fontWeight: 700, letterSpacing: "-0.6px" }}
-          >
-            모더레이션
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-slate-text hover:text-graphite cursor-pointer"
-            aria-label="닫기"
-          >
-            <RiCloseLine size={22} />
-          </button>
-        </div>
+    <Modal
+      open={true}
+      onClose={onClose}
+      className="max-w-lg max-h-[85vh] flex flex-col"
+      showClose={false}
+    >
+      <div className="flex items-center justify-between px-6 py-4 border-b border-silver-mist">
+        <h2
+          className="font-display text-2xl text-graphite"
+          style={{ fontWeight: 700, letterSpacing: "-0.6px" }}
+        >
+          모더레이션
+        </h2>
+        <button
+          onClick={onClose}
+          className="text-slate-text hover:text-graphite cursor-pointer"
+          aria-label="닫기"
+        >
+          <RiCloseLine size={22} />
+        </button>
+      </div>
 
-        <div className="flex border-b border-silver-mist px-2">
+      <div className="flex border-b border-silver-mist px-2">
           {([
             ["words", "금칙어"],
             ["users", "차단 사용자"],
@@ -163,7 +168,7 @@ export default function ModerationPanel({ sessionId, session, onClose }: Moderat
             </div>
           )}
 
-          {tab === "announce" && (
+        {tab === "announce" && (
             <div>
               <p className="text-xs text-slate-text mb-3">
                 전체 참여자 화면에 팝업으로 노출됩니다. 동일 내용도 다시 게시하면 새 공지로 처리됩니다.
@@ -195,8 +200,7 @@ export default function ModerationPanel({ sessionId, session, onClose }: Moderat
               )}
             </div>
           )}
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

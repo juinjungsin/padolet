@@ -426,7 +426,7 @@ export default function ChatPanel({
           </p>
         </div>
       ) : (
-        <form onSubmit={handleSend} onPaste={handlePaste} className="p-3 border-t border-silver-mist flex items-center gap-2">
+        <form onSubmit={handleSend} onPaste={handlePaste} className="p-3 pb-safe border-t border-silver-mist flex items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -443,6 +443,12 @@ export default function ChatPanel({
             onChange={(e) => {
               setInput(e.target.value);
               if (sendError) setSendError("");
+            }}
+            onFocus={() => {
+              // 모바일 가상 키보드 등장 시 입력창이 보이도록 스크롤 보정
+              setTimeout(() => {
+                inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+              }, 300);
             }}
             placeholder={replyTo ? `${replyTo.authorName}에게 답장...` : "메시지 입력..."}
             className="flex-1 bg-transparent text-sm text-ink placeholder:text-ash-text outline-none"

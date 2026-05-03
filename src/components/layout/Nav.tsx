@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { RiUserLine, RiFileTextLine, RiTimerLine, RiShieldUserLine } from "react-icons/ri";
+import { RiUserLine, RiFileTextLine, RiTimerLine, RiShieldUserLine, RiSettings3Line } from "react-icons/ri";
 
 interface NavProps {
   sessionTitle?: string;
@@ -83,9 +83,11 @@ export default function Nav({
         {isAdmin && (
           <Link
             href="/admin"
-            className="text-xs text-slate-text hover:text-graphite transition-colors"
+            title="관리 페이지"
+            aria-label="관리 페이지로 이동"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-full text-slate-text hover:text-graphite hover:bg-vellum transition-colors"
           >
-            관리
+            <RiSettings3Line size={18} />
           </Link>
         )}
       </div>

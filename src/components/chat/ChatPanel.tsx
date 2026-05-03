@@ -8,6 +8,8 @@ import {
   containsBannedWord,
   isNameBlocked,
   blockUserName,
+  hideMessage,
+  unhideMessage,
 } from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import {
@@ -16,6 +18,8 @@ import {
   RiFileCopyLine,
   RiReplyLine,
   RiUserForbidLine,
+  RiEyeOffLine,
+  RiEyeLine,
 } from "react-icons/ri";
 
 function renderTextWithLinks(text: string) {
@@ -127,6 +131,15 @@ export default function ChatPanel({
     if (!confirm(`"${name}" 사용자를 차단하시겠습니까? 차단된 사용자는 새 메시지를 보낼 수 없습니다.`))
       return;
     await blockUserName(sessionId, name);
+  }
+
+  async function handleToggleHide(msg: Message) {
+    if (!isAdmin || !msg.id) return;
+    if (msg.hidden) {
+      await unhideMessage(sessionId, msg.id);
+    } else {
+      await hideMessage(sessionId, msg.id);
+    }
   }
 
   async function uploadAndSendFile(file: File) {
@@ -259,34 +272,52 @@ export default function ChatPanel({
         {messages.map((msg) => (
           <div key={msg.id} className={`${msg.authorId === authorId ? "text-right" : ""}`}>
             <p className="text-[10px] text-gravel mb-0.5">{msg.authorName}</p>
-            <div
-              className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm text-left ${
-                msg.authorId === authorId
-                  ? "bg-obsidian text-eggshell"
-                  : "bg-powder text-obsidian"
-              }`}
-            >
-              {msg.type === "image" && msg.fileUrl && (
-                <img
-                  src={msg.fileUrl}
-                  alt={msg.fileMeta?.name || "이미지"}
-                  className="max-w-full rounded-lg mb-1 cursor-pointer"
-                  onClick={() => window.open(msg.fileUrl, "_blank")}
-                />
-              )}
-              {msg.type === "file" && msg.fileUrl && (
-                <a
-                  href={msg.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  📎 {msg.fileMeta?.name || "파일"} ({((msg.fileMeta?.size || 0) / 1024 / 1024).toFixed(1)}MB)
-                </a>
-              )}
-              {msg.type === "text" && renderMessageContent(msg)}
-              {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
-            </div>
+            {msg.hidden ? (
+              <div
+                className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm text-left bg-vellum text-ash-text border border-silver-mist italic ${
+                  isAdmin ? "opacity-90" : ""
+                }`}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <RiEyeOffLine size={12} />
+                  관리자가 메시지를 가렸습니다
+                </span>
+                {isAdmin && (
+                  <div className="mt-1 text-[10px] text-slate-text not-italic">
+                    원본: {msg.content || "(파일/이미지)"}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm text-left ${
+                  msg.authorId === authorId
+                    ? "bg-obsidian text-eggshell"
+                    : "bg-powder text-obsidian"
+                }`}
+              >
+                {msg.type === "image" && msg.fileUrl && (
+                  <img
+                    src={msg.fileUrl}
+                    alt={msg.fileMeta?.name || "이미지"}
+                    className="max-w-full rounded-lg mb-1 cursor-pointer"
+                    onClick={() => window.open(msg.fileUrl, "_blank")}
+                  />
+                )}
+                {msg.type === "file" && msg.fileUrl && (
+                  <a
+                    href={msg.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    📎 {msg.fileMeta?.name || "파일"} ({((msg.fileMeta?.size || 0) / 1024 / 1024).toFixed(1)}MB)
+                  </a>
+                )}
+                {msg.type === "text" && renderMessageContent(msg)}
+                {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
+              </div>
+            )}
             <div className={`flex items-center gap-2 mt-0.5 ${msg.authorId === authorId ? "justify-end" : ""}`}>
               <p className="text-[10px] text-slate">
                 {msg.createdAt?.toDate?.()
@@ -311,6 +342,16 @@ export default function ChatPanel({
                 <RiReplyLine size={10} />
                 Reply
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => handleToggleHide(msg)}
+                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer transition-colors"
+                  title={msg.hidden ? "다시 보이기" : "메시지 가리기"}
+                >
+                  {msg.hidden ? <RiEyeLine size={10} /> : <RiEyeOffLine size={10} />}
+                  {msg.hidden ? "Unhide" : "Hide"}
+                </button>
+              )}
               {isAdmin && msg.authorId !== authorId && (
                 <button
                   onClick={() => handleBlock(msg.authorName)}

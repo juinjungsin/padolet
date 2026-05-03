@@ -69,6 +69,7 @@ export interface Message {
   fileUrl?: string;
   fileMeta?: { name: string; size: number; mimeType: string };
   createdAt: Timestamp;
+  hidden?: boolean;
 }
 
 // --- 세션 ---
@@ -259,6 +260,18 @@ export async function addMessage(sessionId: string, data: Omit<Message, "id" | "
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function hideMessage(sessionId: string, messageId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "messages", messageId), {
+    hidden: true,
+  });
+}
+
+export async function unhideMessage(sessionId: string, messageId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "messages", messageId), {
+    hidden: false,
+  });
 }
 
 export function onMessages(sessionId: string, callback: (messages: Message[]) => void) {

@@ -8,6 +8,8 @@ import PostGrid from "@/components/board/PostGrid";
 import PostInput from "@/components/board/PostInput";
 import ChatPanel from "@/components/chat/ChatPanel";
 import AnnouncementModal from "@/components/board/AnnouncementModal";
+import BoardToolbar from "@/components/board/BoardToolbar";
+import ParticipantsPanel from "@/components/board/ParticipantsPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
 import { getSession, onParticipants, onPosts, onSession, Session } from "@/lib/firestore";
 import { RiChat3Line, RiStickyNoteLine } from "react-icons/ri";
@@ -30,6 +32,8 @@ export default function BoardPage() {
   const [loading, setLoading] = useState(true);
   const [mobileTab, setMobileTab] = useState<"board" | "chat">("board");
   const [showModeration, setShowModeration] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`padolet_${sessionId}`);
@@ -109,7 +113,18 @@ export default function BoardPage() {
             bannedWords={bannedWords}
             blockedNames={blockedNames}
           />
-          <PostGrid sessionId={sessionId} isAdmin={isAdmin} />
+          <BoardToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenParticipants={() => setShowParticipants(true)}
+            participantCount={participantCount}
+          />
+          <PostGrid
+            sessionId={sessionId}
+            isAdmin={isAdmin}
+            currentUserId={participant.participantId}
+            searchQuery={searchQuery}
+          />
         </div>
         <div style={{ width: "25%" }}>
           <ChatPanel
@@ -175,6 +190,14 @@ export default function BoardPage() {
       </div>
 
       <AnnouncementModal sessionId={sessionId} announcement={session?.announcement} />
+
+      <ParticipantsPanel
+        open={showParticipants}
+        onClose={() => setShowParticipants(false)}
+        sessionId={sessionId}
+        isAdmin={isAdmin}
+        blockedNames={blockedNames}
+      />
 
       {showModeration && session && (
         <ModerationPanel

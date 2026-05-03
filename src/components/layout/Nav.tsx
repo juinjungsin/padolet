@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { RiUserLine, RiFileTextLine, RiTimerLine, RiShieldUserLine, RiSettings3Line } from "react-icons/ri";
+import {
+  RiUserLine,
+  RiFileTextLine,
+  RiTimerLine,
+  RiShieldUserLine,
+  RiSettings3Line,
+  RiSlideshowLine,
+} from "react-icons/ri";
 
 interface NavProps {
   sessionTitle?: string;
@@ -57,6 +64,19 @@ export default function Nav({
           >
             <RiTimerLine size={14} />
             <span className="hidden sm:inline">쉬는시간</span>
+          </Link>
+        )}
+
+        {sessionId && isAdmin && (
+          <Link
+            href={`/board/${sessionId}/projector`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="프로젝터 모드 (새 창)"
+            className="flex items-center gap-1 text-xs text-slate-text hover:text-graphite transition-colors"
+          >
+            <RiSlideshowLine size={14} />
+            <span className="hidden sm:inline">프로젝터</span>
           </Link>
         )}
 

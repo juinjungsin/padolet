@@ -7,7 +7,18 @@ import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { createSession, deleteSession, getSessionsByAdmin, Session } from "@/lib/firestore";
+import AdminManagementPanel from "@/components/admin/AdminManagementPanel";
+import {
+  createSession,
+  deleteSession,
+  getSessionsByAdmin,
+  getAllSessions,
+  getRole,
+  isSuperAdmin,
+  Role,
+  Session,
+  SUPER_ADMIN_EMAIL,
+} from "@/lib/firestore";
 import { generateSessionCode } from "@/lib/session-code";
 import QRCode from "qrcode";
 
@@ -24,17 +35,52 @@ export default function AdminPage() {
   const [qrModal, setQrModal] = useState<{ code: string; qrUrl: string; sessionId: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<(Session & { id: string }) | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [role, setRole] = useState<Role | null>(null);
 
   const adminId = (session?.user as Record<string, unknown>)?.id as string | undefined;
+  const email = session?.user?.email || null;
+  const isSuper = isSuperAdmin(email);
 
+  // 로그인 직후 역할 결정 (super / admin / none)
   useEffect(() => {
-    if (adminId) loadSessions();
-  }, [adminId]);
+    if (!email) {
+      setRole(null);
+      return;
+    }
+    let cancelled = false;
+    getRole(email).then((r) => {
+      if (!cancelled) setRole(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [email]);
 
-  async function loadSessions() {
-    if (!adminId) return;
-    const list = await getSessionsByAdmin(adminId);
-    setSessions(list);
+  // 역할이 결정되면 해당 권한에 맞는 세션 목록 조회
+  useEffect(() => {
+    if (!adminId || !role) return;
+    if (role === "none") {
+      setSessions([]);
+      return;
+    }
+    loadSessions(role, adminId);
+  }, [adminId, role]);
+
+  async function loadSessions(currentRole: Role, currentAdminId: string) {
+    if (currentRole === "super") {
+      const list = await getAllSessions();
+      setSessions(list);
+    } else if (currentRole === "admin") {
+      const list = await getSessionsByAdmin(currentAdminId);
+      setSessions(list);
+    } else {
+      setSessions([]);
+    }
+  }
+
+  async function reloadSessions() {
+    if (!adminId || !role) return;
+    await loadSessions(role, adminId);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -55,7 +101,7 @@ export default function AdminPage() {
     setDescription("");
     setShowCreate(false);
     setCreating(false);
-    await loadSessions();
+    await reloadSessions();
     showQR(code, sessionId);
   }
 
@@ -67,11 +113,17 @@ export default function AdminPage() {
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
+    // 권한 재검증 — admin은 본인 세션만 삭제 가능
+    if (role === "admin" && deleteTarget.createdBy !== adminId) {
+      alert("이 세션을 삭제할 권한이 없습니다.");
+      setDeleteTarget(null);
+      return;
+    }
     setDeleting(true);
     try {
       await deleteSession(deleteTarget.id);
       setDeleteTarget(null);
-      await loadSessions();
+      await reloadSessions();
     } catch {
       alert("삭제에 실패했습니다.");
     }
@@ -79,7 +131,7 @@ export default function AdminPage() {
   }
 
   // 로딩 중
-  if (status === "loading") {
+  if (status === "loading" || (session && role === null)) {
     return (
       <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
         로딩 중...
@@ -98,10 +150,10 @@ export default function AdminPage() {
           >
             padolet
           </h1>
-          <p className="text-base text-gravel">강사 로그인</p>
+          <p className="text-base text-slate-text">관리자 로그인</p>
         </div>
         <Card className="w-full max-w-sm p-8 text-center">
-          <p className="text-sm text-gravel mb-6">
+          <p className="text-sm text-slate-text mb-6">
             세션을 생성하고 관리하려면 Google 계정으로 로그인하세요.
           </p>
           <Button onClick={() => signIn("google")}>Google로 로그인</Button>
@@ -109,6 +161,34 @@ export default function AdminPage() {
       </div>
     );
   }
+
+  // 인증되었으나 권한 없음
+  if (role === "none") {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4">
+        <Card className="w-full max-w-md p-8 text-center">
+          <h2
+            className="font-display text-2xl text-graphite mb-3"
+            style={{ fontWeight: 700, letterSpacing: "-0.6px" }}
+          >
+            권한이 없습니다
+          </h2>
+          <p className="text-sm text-ink mb-2">
+            <span className="font-semibold">{session.user?.email}</span>
+          </p>
+          <p className="text-sm text-slate-text mb-6">
+            이 계정은 padolet 관리자로 등록되어 있지 않습니다. 접근 권한이 필요하면 super_admin({SUPER_ADMIN_EMAIL})에게 문의하세요.
+          </p>
+          <Button variant="outlined" onClick={() => signOut()}>
+            로그아웃
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const canDelete = (s: Session) =>
+    isSuper || (role === "admin" && s.createdBy === adminId);
 
   // 인증된 Admin 대시보드
   return (
@@ -123,15 +203,20 @@ export default function AdminPage() {
             >
               세션 관리
             </h1>
-            <p className="text-xs text-gravel mt-1">
+            <p className="text-xs text-slate-text mt-1">
               {session.user?.name} ({session.user?.email})
-              <button onClick={() => signOut()} className="ml-2 text-slate hover:text-obsidian underline cursor-pointer">
+              <span className="ml-2 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold bg-graphite text-chalk-card">
+                {isSuper ? "SUPER" : "ADMIN"}
+              </span>
+              <button onClick={() => signOut()} className="ml-3 text-ash-text hover:text-graphite underline cursor-pointer">
                 로그아웃
               </button>
             </p>
           </div>
           <Button onClick={() => setShowCreate(true)}>새 세션 생성</Button>
         </div>
+
+        {isSuper && <AdminManagementPanel superAdminEmail={SUPER_ADMIN_EMAIL} />}
 
         {showCreate && (
           <Card className="p-6 mb-8">
@@ -162,32 +247,46 @@ export default function AdminPage() {
 
         <div className="space-y-3">
           {sessions.length === 0 && (
-            <p className="text-sm text-gravel text-center py-12">아직 생성된 세션이 없습니다.</p>
+            <p className="text-sm text-slate-text text-center py-12">
+              {isSuper ? "생성된 세션이 없습니다." : "아직 생성된 세션이 없습니다."}
+            </p>
           )}
-          {sessions.map((s) => (
-            <Card key={s.id} className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-obsidian">{s.title}</p>
-                <p className="text-xs text-gravel mt-1">
-                  코드: {s.code} · 참여자: {s.participantCount}명
-                </p>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button variant="ghost" onClick={() => showQR(s.code, s.id)}>
-                  QR
-                </Button>
-                <Button variant="ghost" onClick={() => router.push(`/board/${s.id}`)}>
-                  보드
-                </Button>
-                <Button variant="ghost" onClick={() => router.push(`/admin/report/${s.id}`)}>
-                  레포트
-                </Button>
-                <Button variant="ghost" onClick={() => setDeleteTarget(s)}>
-                  삭제
-                </Button>
-              </div>
-            </Card>
-          ))}
+          {sessions.map((s) => {
+            const ownsSession = s.createdBy === adminId;
+            return (
+              <Card key={s.id} className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-ink">
+                    {s.title}
+                    {isSuper && !ownsSession && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wider bg-linen text-ink px-2 py-0.5 rounded-full font-semibold">
+                        타 관리자
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-slate-text mt-1">
+                    코드: {s.code} · 참여자: {s.participantCount}명
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="ghost" onClick={() => showQR(s.code, s.id)}>
+                    QR
+                  </Button>
+                  <Button variant="ghost" onClick={() => router.push(`/board/${s.id}`)}>
+                    보드
+                  </Button>
+                  <Button variant="ghost" onClick={() => router.push(`/admin/report/${s.id}`)}>
+                    레포트
+                  </Button>
+                  {canDelete(s) && (
+                    <Button variant="ghost" onClick={() => setDeleteTarget(s)}>
+                      삭제
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       </div>
 

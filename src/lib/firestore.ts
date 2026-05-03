@@ -4,6 +4,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -16,6 +17,58 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db as getDb } from "./firebase";
+
+// --- 권한 (Roles) ---
+
+export const SUPER_ADMIN_EMAIL = "jongbin@gmail.com";
+
+export interface AdminEntry {
+  email: string; // 도큐먼트 ID와 동일
+  addedAt: Timestamp;
+  addedBy: string; // super_admin email
+}
+
+export type Role = "super" | "admin" | "none";
+
+export function isSuperAdmin(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+}
+
+export async function isDelegatedAdmin(email: string | null | undefined): Promise<boolean> {
+  if (!email) return false;
+  const snap = await getDoc(doc(getDb(), "admins", email.toLowerCase()));
+  return snap.exists();
+}
+
+export async function getRole(email: string | null | undefined): Promise<Role> {
+  if (!email) return "none";
+  if (isSuperAdmin(email)) return "super";
+  if (await isDelegatedAdmin(email)) return "admin";
+  return "none";
+}
+
+export async function listAdmins(): Promise<AdminEntry[]> {
+  const snap = await getDocs(collection(getDb(), "admins"));
+  return snap.docs.map((d) => ({ email: d.id, ...d.data() }) as AdminEntry);
+}
+
+export async function addAdmin(email: string, addedBy: string) {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return;
+  if (isSuperAdmin(normalized)) return; // super는 별도 등록 불필요
+  await setDoc(doc(getDb(), "admins", normalized), {
+    email: normalized,
+    addedAt: Timestamp.now(),
+    addedBy,
+  });
+}
+
+export async function removeAdmin(email: string) {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return;
+  await deleteDoc(doc(getDb(), "admins", normalized));
+}
 
 // --- 타입 정의 ---
 
@@ -104,6 +157,13 @@ export async function getSessionsByAdmin(adminId: string) {
     where("createdBy", "==", adminId),
     orderBy("createdAt", "desc")
   );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Session & { id: string });
+}
+
+// super_admin 전용 — 모든 세션 조회
+export async function getAllSessions() {
+  const q = query(collection(getDb(), "sessions"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Session & { id: string });
 }

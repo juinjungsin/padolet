@@ -9,6 +9,7 @@ import {
   RiShieldUserLine,
   RiSettings3Line,
   RiSlideshowLine,
+  RiBarChart2Line,
 } from "react-icons/ri";
 
 interface NavProps {
@@ -18,6 +19,7 @@ interface NavProps {
   participantCount?: number;
   isAdmin?: boolean;
   onOpenModeration?: () => void;
+  onOpenPolls?: () => void;
 }
 
 export default function Nav({
@@ -27,6 +29,7 @@ export default function Nav({
   participantCount,
   isAdmin,
   onOpenModeration,
+  onOpenPolls,
 }: NavProps) {
   return (
     <nav className="h-[72px] bg-parchment flex items-center px-4 md:px-8 max-w-[1200px] mx-auto w-full">
@@ -65,6 +68,17 @@ export default function Nav({
             <RiTimerLine size={14} />
             <span className="hidden sm:inline">쉬는시간</span>
           </Link>
+        )}
+
+        {sessionId && onOpenPolls && (
+          <button
+            onClick={onOpenPolls}
+            className="inline-flex items-center gap-1 text-xs text-slate-text hover:text-graphite transition-colors cursor-pointer"
+            title="투표 / 퀴즈"
+          >
+            <RiBarChart2Line size={14} />
+            <span className="hidden sm:inline">투표</span>
+          </button>
         )}
 
         {sessionId && isAdmin && (

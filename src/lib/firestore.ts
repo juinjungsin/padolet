@@ -212,6 +212,101 @@ export function onSession(
   });
 }
 
+// --- 투표 / 퀴즈 ---
+
+export interface Poll {
+  id?: string;
+  question: string;
+  options: string[]; // 최대 6개 권장
+  /** 정답 인덱스 (퀴즈 모드일 때 설정). null이면 단순 투표 */
+  correctIndex?: number | null;
+  /** 익명 투표 여부 */
+  anonymous: boolean;
+  /** 활성 / 종료 */
+  active: boolean;
+  createdAt: Timestamp;
+  endedAt?: Timestamp | null;
+  createdBy: string;
+}
+
+export interface PollVote {
+  id?: string; // = voterId
+  voterId: string;
+  voterName: string;
+  optionIndex: number;
+  createdAt: Timestamp;
+}
+
+export async function createPoll(
+  sessionId: string,
+  data: Omit<Poll, "id" | "createdAt" | "active" | "endedAt">
+): Promise<string> {
+  const ref = await addDoc(collection(getDb(), "sessions", sessionId, "polls"), {
+    ...data,
+    active: true,
+    endedAt: null,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function endPoll(sessionId: string, pollId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "polls", pollId), {
+    active: false,
+    endedAt: Timestamp.now(),
+  });
+}
+
+export async function deletePoll(sessionId: string, pollId: string) {
+  // votes subcollection batch delete
+  const votesSnap = await getDocs(
+    collection(getDb(), "sessions", sessionId, "polls", pollId, "votes")
+  );
+  const batch = writeBatch(getDb());
+  votesSnap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+  await deleteDoc(doc(getDb(), "sessions", sessionId, "polls", pollId));
+}
+
+export function onPolls(sessionId: string, callback: (polls: Poll[]) => void) {
+  const q = query(
+    collection(getDb(), "sessions", sessionId, "polls"),
+    orderBy("createdAt", "desc")
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Poll));
+  });
+}
+
+export async function castVote(
+  sessionId: string,
+  pollId: string,
+  voterId: string,
+  voterName: string,
+  optionIndex: number
+) {
+  // voterId를 docId로 사용 → 1인 1표 보장
+  await setDoc(doc(getDb(), "sessions", sessionId, "polls", pollId, "votes", voterId), {
+    voterId,
+    voterName,
+    optionIndex,
+    createdAt: Timestamp.now(),
+  });
+}
+
+export function onPollVotes(
+  sessionId: string,
+  pollId: string,
+  callback: (votes: PollVote[]) => void
+) {
+  return onSnapshot(
+    collection(getDb(), "sessions", sessionId, "polls", pollId, "votes"),
+    (snap) => {
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PollVote));
+    }
+  );
+}
+
 // --- 모더레이션: 금칙어 ---
 
 export async function addBannedWord(sessionId: string, word: string) {

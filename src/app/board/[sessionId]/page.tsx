@@ -10,6 +10,7 @@ import ChatPanel from "@/components/chat/ChatPanel";
 import AnnouncementModal from "@/components/board/AnnouncementModal";
 import BoardToolbar from "@/components/board/BoardToolbar";
 import ParticipantsPanel from "@/components/board/ParticipantsPanel";
+import PollPanel from "@/components/poll/PollPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
 import { getSession, onParticipants, onPosts, onSession, Session } from "@/lib/firestore";
 import { RiChat3Line, RiStickyNoteLine } from "react-icons/ri";
@@ -33,6 +34,7 @@ export default function BoardPage() {
   const [mobileTab, setMobileTab] = useState<"board" | "chat">("board");
   const [showModeration, setShowModeration] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [showPolls, setShowPolls] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -100,6 +102,7 @@ export default function BoardPage() {
         participantCount={participantCount}
         isAdmin={isAdmin}
         onOpenModeration={isAdmin ? () => setShowModeration(true) : undefined}
+        onOpenPolls={() => setShowPolls(true)}
       />
 
       {/* 데스크탑: 좌 3/4 보드 + 우 1/4 채팅 */}
@@ -197,6 +200,15 @@ export default function BoardPage() {
         sessionId={sessionId}
         isAdmin={isAdmin}
         blockedNames={blockedNames}
+      />
+
+      <PollPanel
+        open={showPolls}
+        onClose={() => setShowPolls(false)}
+        sessionId={sessionId}
+        voterId={participant.participantId}
+        voterName={participant.name}
+        isAdmin={isAdmin}
       />
 
       {showModeration && session && (

@@ -72,18 +72,18 @@ export default function PostInput({ sessionId, authorId, authorName, currentPost
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 border-b border-chalk">
-      <div className="bg-[#fffde6] border border-[#f0e68c] rounded-xl p-4">
+    <form onSubmit={handleSubmit} className="p-4 border-b border-silver-mist">
+      <div className="bg-buttercup border border-ochre/20 rounded-lg p-4 shadow-[--shadow-card]">
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="포스트잇에 내용을 작성하세요"
           rows={3}
-          className="w-full resize-none bg-transparent text-sm text-obsidian placeholder:text-slate/60 outline-none"
+          className="w-full resize-none bg-transparent text-sm text-ink placeholder:text-ochre/50 outline-none"
         />
         {uploadProgress > 0 && (
-          <div className="mt-1 h-1 bg-[#f0e68c] rounded-full overflow-hidden">
-            <div className="h-full bg-obsidian transition-all" style={{ width: `${uploadProgress}%` }} />
+          <div className="mt-1 h-1 bg-ochre/20 rounded-full overflow-hidden">
+            <div className="h-full bg-graphite transition-all" style={{ width: `${uploadProgress}%` }} />
           </div>
         )}
         <div className="flex items-center gap-3 mt-2">
@@ -95,11 +95,11 @@ export default function PostInput({ sessionId, authorId, authorName, currentPost
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={loading}
-            className="text-slate hover:text-obsidian cursor-pointer disabled:opacity-50"
+            className="text-ochre hover:text-graphite cursor-pointer disabled:opacity-50"
           >
             <RiImageAddLine size={16} />
           </button>
-          <span className="text-xs text-slate ml-auto">{content.length}</span>
+          <span className="text-xs text-ash-text ml-auto">{content.length}</span>
         </div>
       </div>
     </form>

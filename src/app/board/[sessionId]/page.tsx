@@ -60,7 +60,7 @@ export default function BoardPage() {
 
   if (loading || !participant) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-eggshell text-gravel">
+      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
         로딩 중...
       </div>
     );
@@ -70,7 +70,7 @@ export default function BoardPage() {
   const isAdmin = !!adminId && session?.createdBy === adminId;
 
   return (
-    <div className="flex flex-col h-screen bg-eggshell relative">
+    <div className="flex flex-col h-screen bg-parchment relative">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
         style={{ backgroundImage: "url('/board-bg.png')", opacity: 0.25 }}
@@ -127,11 +127,11 @@ export default function BoardPage() {
         )}
 
         {/* 모바일 하단 탭 바 */}
-        <div className="flex border-t border-chalk bg-white">
+        <div className="flex border-t border-silver-mist bg-chalk-card">
           <button
             onClick={() => setMobileTab("board")}
             className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm cursor-pointer ${
-              mobileTab === "board" ? "text-obsidian font-medium" : "text-gravel"
+              mobileTab === "board" ? "text-graphite font-semibold" : "text-slate-text"
             }`}
           >
             <RiStickyNoteLine size={16} />
@@ -140,7 +140,7 @@ export default function BoardPage() {
           <button
             onClick={() => setMobileTab("chat")}
             className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm cursor-pointer ${
-              mobileTab === "chat" ? "text-obsidian font-medium" : "text-gravel"
+              mobileTab === "chat" ? "text-graphite font-semibold" : "text-slate-text"
             }`}
           >
             <RiChat3Line size={16} />

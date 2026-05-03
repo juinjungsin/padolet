@@ -107,20 +107,20 @@ export default function ReportPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-eggshell text-gravel">
+      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
         레포트 생성 중...
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-eggshell">
+    <div className="flex flex-col min-h-screen bg-parchment">
       <Nav isAdmin />
       <div className="max-w-[1200px] mx-auto w-full px-6 py-12">
         <div className="flex items-center justify-between mb-8">
           <h1
-            className="font-display text-4xl text-obsidian"
-            style={{ fontWeight: 300, letterSpacing: "-0.72px" }}
+            className="font-display text-4xl text-graphite"
+            style={{ fontWeight: 700, letterSpacing: "-0.9px" }}
           >
             {session?.title} — 레포트
           </h1>

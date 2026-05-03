@@ -66,7 +66,7 @@ export default function AdminPage() {
   // 로딩 중
   if (status === "loading") {
     return (
-      <div className="flex-1 flex items-center justify-center bg-eggshell text-gravel">
+      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
         로딩 중...
       </div>
     );
@@ -75,11 +75,11 @@ export default function AdminPage() {
   // 미인증 — Google 로그인 화면
   if (!session) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-eggshell px-4">
+      <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4">
         <div className="text-center mb-8">
           <h1
-            className="font-display text-5xl text-obsidian mb-3"
-            style={{ fontWeight: 300, letterSpacing: "-0.96px", lineHeight: 1.08 }}
+            className="font-display text-5xl text-graphite mb-3"
+            style={{ fontWeight: 700, letterSpacing: "-1.2px", lineHeight: 1.08 }}
           >
             padolet
           </h1>
@@ -97,14 +97,14 @@ export default function AdminPage() {
 
   // 인증된 Admin 대시보드
   return (
-    <div className="flex flex-col min-h-screen bg-eggshell">
+    <div className="flex flex-col min-h-screen bg-parchment">
       <Nav isAdmin />
       <div className="max-w-[1200px] mx-auto w-full px-4 md:px-6 py-8 md:py-12">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1
-              className="font-display text-3xl md:text-4xl text-obsidian"
-              style={{ fontWeight: 300, letterSpacing: "-0.72px" }}
+              className="font-display text-3xl md:text-4xl text-graphite"
+              style={{ fontWeight: 700, letterSpacing: "-0.9px" }}
             >
               세션 관리
             </h1>
@@ -174,16 +174,16 @@ export default function AdminPage() {
       </div>
 
       {qrModal && (
-        <div className="fixed inset-0 bg-obsidian/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-graphite/60 backdrop-blur-sm flex items-center justify-center z-50">
           <Card className="p-10 text-center max-w-md">
             <h2
-              className="font-display text-5xl text-obsidian mb-6"
-              style={{ fontWeight: 300, letterSpacing: "-0.96px", lineHeight: 1.08 }}
+              className="font-display text-5xl text-graphite mb-6 font-mono"
+              style={{ fontWeight: 700, letterSpacing: "0.2em", lineHeight: 1.08 }}
             >
               {qrModal.code}
             </h2>
             <img src={qrModal.qrUrl} alt="QR Code" className="mx-auto mb-4" />
-            <p className="text-sm text-gravel mb-6">
+            <p className="text-sm text-slate-text mb-6">
               QR 스캔 또는 코드를 입력하여 참여
             </p>
             <Button onClick={() => setQrModal(null)}>닫기</Button>

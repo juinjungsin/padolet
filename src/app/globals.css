@@ -1,24 +1,54 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Colors — ElevenLabs style */
-  --color-eggshell: #fdfcfc;
-  --color-powder: #f5f3f1;
-  --color-chalk: #e5e5e5;
-  --color-fog: #b1b0b0;
-  --color-gravel: #777169;
-  --color-slate: #a59f97;
-  --color-cinder: #575349;
-  --color-obsidian: #000000;
-  --color-signal-blue: #0447ff;
-  --color-ember: #ff4704;
+  /* Colors — Slite parchment palette
+   * Token names preserved for backwards compatibility; values remapped to
+   * the warm-cream Slite system. New names (parchment/vellum/ink/blueprint…)
+   * are added side-by-side so new components can use canonical names.
+   */
 
-  /* Typography */
-  --font-display: 'Cormorant Garamond', Georgia, serif;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Surfaces */
+  --color-parchment: #f9efe4;     /* primary page ground */
+  --color-vellum: #fdf9f4;        /* secondary surface, alt section */
+  --color-chalk-card: #fdfdfd;    /* highest surface, cards */
+  --color-linen: #f0e4d6;         /* muted banner / sticky-note ground */
+  --color-blossom: #fae9f4;       /* category badge bg */
+  --color-buttercup: #fbf4d8;     /* category badge bg */
+
+  /* Text & ink */
+  --color-ink: #3f434a;           /* primary body text */
+  --color-graphite: #2d2f34;      /* filled-button surface, headings */
+  --color-graphite-dark: #1a1c20; /* hover for filled buttons */
+  --color-slate-text: #656565;    /* secondary text */
+  --color-ash-text: #9da3af;      /* tertiary text */
+  --color-silver-mist: #d9dde6;   /* borders, dividers */
+
+  /* Accent */
+  --color-blueprint: #2e77e5;     /* links */
+  --color-dusk-blue: #446aa7;     /* inline link */
+  --color-sage: #547358;          /* compliance text */
+  --color-mauve: #9d4d77;         /* customization text */
+  --color-ochre: #7f6c1f;         /* security text */
+  --color-terracotta: #f67748;    /* danger / error */
+
+  /* Legacy token bridge — keep prior class names alive, point at Slite values */
+  --color-eggshell: #f9efe4;      /* was #fdfcfc */
+  --color-powder: #fdf9f4;        /* was #f5f3f1 */
+  --color-chalk: #d9dde6;         /* was #e5e5e5 — now silver-mist (border) */
+  --color-fog: #9da3af;           /* was #b1b0b0 */
+  --color-gravel: #656565;        /* was #777169 */
+  --color-slate: #9da3af;         /* was #a59f97 */
+  --color-cinder: #1a1c20;        /* was #575349 — hover state */
+  --color-obsidian: #2d2f34;      /* was #000000 — graphite */
+  --color-signal-blue: #2e77e5;   /* was #0447ff */
+  --color-ember: #f67748;         /* was #ff4704 — terracotta */
+
+  /* Typography — substitutes for Garnett / UniversalSans per DESIGN_site.md */
+  --font-display: 'Fraunces', 'DM Serif Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 
-  /* Spacing */
+  /* Spacing — 8px base */
   --spacing-4: 4px;
   --spacing-8: 8px;
   --spacing-12: 12px;
@@ -28,29 +58,43 @@
   --spacing-32: 32px;
   --spacing-40: 40px;
   --spacing-48: 48px;
+  --spacing-56: 56px;
   --spacing-64: 64px;
   --spacing-80: 80px;
   --spacing-96: 96px;
   --spacing-120: 120px;
+  --spacing-240: 240px;
 
-  /* Border Radius */
+  /* Border Radius — pill-forward */
   --radius-none: 0px;
   --radius-sm: 4px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 12px;     /* cards */
   --radius-xl: 16px;
   --radius-2xl: 20px;
-  --radius-3xl: 24px;
-  --radius-full: 9999px;
+  --radius-3xl: 24px;    /* modals */
+  --radius-pill: 42px;   /* primary CTA */
+  --radius-full: 9999px; /* badges / outlined CTA */
 
-  /* Shadows */
-  --shadow-subtle: rgba(0, 0, 0, 0.075) 0px 0px 0px 0.5px inset;
-  --shadow-card: rgba(0, 0, 0, 0.4) 0px 0px 1px 0px, rgba(0, 0, 0, 0.04) 0px 2px 4px 0px;
-  --shadow-button: rgba(0, 0, 0, 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 1px 2px, rgba(0, 0, 0, 0.04) 0px 2px 4px;
+  /* Shadows — Slite three-layer whisper */
+  --shadow-subtle: rgba(0, 0, 0, 0.04) 0px 0px 0px 1px inset;
+  --shadow-card: rgba(0, 0, 0, 0.01) 0px 4px 12px 0px,
+                 rgba(0, 0, 0, 0.05) 0px 2px 6px 0px,
+                 rgba(0, 0, 0, 0.10) 0px 1px 3px 0px;
+  --shadow-button: rgba(0, 0, 0, 0.01) 0px 4px 12px 0px,
+                   rgba(0, 0, 0, 0.05) 0px 2px 6px 0px,
+                   rgba(0, 0, 0, 0.10) 0px 1px 3px 0px;
 }
 
 body {
-  background-color: var(--color-eggshell);
-  color: var(--color-obsidian);
+  background-color: var(--color-parchment);
+  color: var(--color-ink);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "ss02";
+}
+
+/* The display face wants a touch of optical sizing on Fraunces */
+.font-display {
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 50, "WONK" 0;
 }

@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
-import { Inter, Cormorant_Garamond } from "next/font/google";
+import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import AuthProvider from "@/components/auth/AuthProvider";
 import Footer from "@/components/layout/Footer";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
-  weight: ["300"],
+  axes: ["SOFT", "WONK"],
 });
 
 export const metadata: Metadata = {
@@ -31,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${inter.variable} ${cormorant.variable} h-full`}>
-      <body className="min-h-full flex flex-col font-sans antialiased">
+    <html lang="ko" className={`${jakarta.variable} ${fraunces.variable} h-full`}>
+      <body className="min-h-full flex flex-col font-sans antialiased bg-parchment text-ink">
         <AuthProvider>
           {children}
           <Footer />

@@ -83,12 +83,12 @@ function JoinForm() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-eggshell px-4">
+    <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4">
       {step === "code" && (
         <Card className="w-full max-w-sm p-8">
           <h2
-            className="font-display text-3xl text-obsidian text-center mb-6"
-            style={{ fontWeight: 300, letterSpacing: "-0.64px" }}
+            className="font-display text-3xl text-graphite text-center mb-6"
+            style={{ fontWeight: 700, letterSpacing: "-0.8px" }}
           >
             입장코드 입력
           </h2>
@@ -102,9 +102,9 @@ function JoinForm() {
                 setError("");
               }}
               maxLength={6}
-              className="text-center text-2xl tracking-widest font-medium"
+              className="text-center text-2xl tracking-widest font-bold font-mono"
             />
-            {error && <p className="text-xs text-ember">{error}</p>}
+            {error && <p className="text-xs text-terracotta">{error}</p>}
             <Button type="submit" disabled={loading}>
               {loading ? "확인 중..." : "다음"}
             </Button>
@@ -117,8 +117,8 @@ function JoinForm() {
           <div className="text-center mb-6">
             <p className="text-xs text-gravel mb-1">{code}</p>
             <h2
-              className="font-display text-3xl text-obsidian"
-              style={{ fontWeight: 300, letterSpacing: "-0.64px" }}
+              className="font-display text-3xl text-graphite"
+              style={{ fontWeight: 700, letterSpacing: "-0.8px" }}
             >
               {sessionTitle || "세션 입장"}
             </h2>
@@ -144,7 +144,7 @@ function JoinForm() {
               />
               익명으로 참여
             </label>
-            {error && <p className="text-xs text-ember">{error}</p>}
+            {error && <p className="text-xs text-terracotta">{error}</p>}
             <Button type="submit" disabled={loading}>
               {loading ? "입장 중..." : "입장하기"}
             </Button>
@@ -157,7 +157,7 @@ function JoinForm() {
 
 export default function JoinPage() {
   return (
-    <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-eggshell text-gravel">로딩 중...</div>}>
+    <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">로딩 중...</div>}>
       <JoinForm />
     </Suspense>
   );

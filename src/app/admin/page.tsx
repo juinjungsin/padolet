@@ -16,6 +16,9 @@ import {
   getAllSessions,
   getRole,
   isSuperAdmin,
+  endSession,
+  reopenSession,
+  getSessionStatus,
   Role,
   Session,
   SUPER_ADMIN_EMAIL,
@@ -254,8 +257,15 @@ export default function AdminPage() {
           )}
           {sessions.map((s) => {
             const ownsSession = s.createdBy === adminId;
+            const status = getSessionStatus(s);
+            const isEnded = status === "ended";
             return (
-              <Card key={s.id} className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <Card
+                key={s.id}
+                className={`p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  isEnded ? "opacity-70" : ""
+                }`}
+              >
                 <div>
                   <p className="text-sm font-medium text-ink">
                     {s.title}
@@ -266,6 +276,11 @@ export default function AdminPage() {
                           month: "2-digit",
                           day: "2-digit",
                         })}
+                      </span>
+                    )}
+                    {isEnded && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wider bg-vellum text-slate-text px-2 py-0.5 rounded-full font-semibold">
+                        종료됨
                       </span>
                     )}
                     {isSuper && !ownsSession && (
@@ -288,6 +303,23 @@ export default function AdminPage() {
                   <Button variant="ghost" onClick={() => router.push(`/admin/report/${s.id}`)}>
                     레포트
                   </Button>
+                  {canDelete(s) &&
+                    (isEnded ? (
+                      <Button variant="ghost" onClick={() => reopenSession(s.id).then(reloadSessions)}>
+                        재개
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          if (confirm(`"${s.title}" 세션을 종료하시겠습니까? 종료된 세션은 새 입장이 차단됩니다.`)) {
+                            endSession(s.id).then(reloadSessions);
+                          }
+                        }}
+                      >
+                        종료
+                      </Button>
+                    ))}
                   {canDelete(s) && (
                     <Button variant="ghost" onClick={() => setDeleteTarget(s)}>
                       삭제

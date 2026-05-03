@@ -10,6 +10,8 @@ import {
   blockUserName,
   hideMessage,
   unhideMessage,
+  editMessage,
+  canEditWindow,
 } from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { isSafeExternalUrl } from "@/lib/url-safe";
@@ -21,6 +23,9 @@ import {
   RiUserForbidLine,
   RiEyeOffLine,
   RiEyeLine,
+  RiEditLine,
+  RiCheckLine,
+  RiCloseLine,
 } from "react-icons/ri";
 
 function renderTextWithLinks(text: string) {
@@ -73,6 +78,8 @@ export default function ChatPanel({
   const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
   const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress>>({});
   const [sendError, setSendError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +148,31 @@ export default function ChatPanel({
     } else {
       await hideMessage(sessionId, msg.id);
     }
+  }
+
+  function startEdit(msg: Message) {
+    if (!msg.id || msg.type !== "text") return;
+    setEditingId(msg.id);
+    // 답장 prefix 제거하고 본문만 편집
+    const lines = msg.content.split("\n");
+    const isReply = lines[0]?.startsWith("┃ ");
+    const body = isReply ? lines.slice(1).join("\n") : msg.content;
+    setEditingText(body);
+  }
+
+  async function saveEdit(msg: Message) {
+    if (!msg.id || !editingText.trim()) return;
+    const lines = msg.content.split("\n");
+    const isReply = lines[0]?.startsWith("┃ ");
+    const newContent = isReply ? `${lines[0]}\n${editingText.trim()}` : editingText.trim();
+    await editMessage(sessionId, msg.id, newContent);
+    setEditingId(null);
+    setEditingText("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingText("");
   }
 
   async function uploadAndSendFile(file: File) {
@@ -301,6 +333,33 @@ export default function ChatPanel({
                   </div>
                 )}
               </div>
+            ) : editingId === msg.id ? (
+              <div className="inline-block max-w-[85%] w-full">
+                <textarea
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  rows={2}
+                  autoFocus
+                  className="w-full p-2 text-sm text-ink bg-vellum border border-silver-mist rounded-md outline-none focus:border-graphite resize-none"
+                />
+                <div className="flex justify-end gap-2 mt-1">
+                  <button
+                    onClick={cancelEdit}
+                    className="inline-flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer"
+                  >
+                    <RiCloseLine size={11} />
+                    취소
+                  </button>
+                  <button
+                    onClick={() => saveEdit(msg)}
+                    disabled={!editingText.trim()}
+                    className="inline-flex items-center gap-0.5 text-[10px] text-graphite font-semibold hover:text-blueprint disabled:opacity-40 cursor-pointer"
+                  >
+                    <RiCheckLine size={11} />
+                    저장
+                  </button>
+                </div>
+              </div>
             ) : (
               <div
                 className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm text-left ${
@@ -340,6 +399,7 @@ export default function ChatPanel({
                 {msg.createdAt?.toDate?.()
                   ? msg.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
                   : ""}
+                {msg.editedAt && <span className="ml-1 italic">· 수정됨</span>}
               </p>
               <button
                 onClick={() => {
@@ -359,6 +419,20 @@ export default function ChatPanel({
                 <RiReplyLine size={10} />
                 Reply
               </button>
+              {msg.authorId === authorId &&
+                msg.type === "text" &&
+                !msg.hidden &&
+                canEditWindow(msg.createdAt) &&
+                editingId !== msg.id && (
+                  <button
+                    onClick={() => startEdit(msg)}
+                    title="편집 (5분 이내)"
+                    className="flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer transition-colors"
+                  >
+                    <RiEditLine size={10} />
+                    Edit
+                  </button>
+                )}
               {isAdmin && (
                 <button
                   onClick={() => handleToggleHide(msg)}

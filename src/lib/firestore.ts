@@ -79,6 +79,8 @@ export interface Announcement {
   id: string; // 동일 내용 재공지 구분용
 }
 
+export type SessionStatus = "active" | "ended" | "archived";
+
 export interface Session {
   id?: string;
   title: string;
@@ -91,6 +93,8 @@ export interface Session {
   bannedWords?: string[];
   blockedNames?: string[];
   announcement?: Announcement | null;
+  status?: SessionStatus; // 미설정 = 'active'로 간주
+  endedAt?: Timestamp | null;
 }
 
 export interface Participant {
@@ -112,6 +116,9 @@ export interface Post {
   fileMeta?: { name: string; size: number; mimeType: string };
   createdAt: Timestamp;
   gridIndex: number;
+  pinned?: boolean;
+  pinnedAt?: Timestamp | null;
+  editedAt?: Timestamp | null;
 }
 
 export interface Message {
@@ -124,6 +131,7 @@ export interface Message {
   fileMeta?: { name: string; size: number; mimeType: string };
   createdAt: Timestamp;
   hidden?: boolean;
+  editedAt?: Timestamp | null;
 }
 
 // --- 세션 ---
@@ -322,13 +330,75 @@ export async function deletePost(sessionId: string, postId: string) {
   await deleteDoc(doc(getDb(), "sessions", sessionId, "posts", postId));
 }
 
+export async function pinPost(sessionId: string, postId: string, pinned: boolean) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "posts", postId), {
+    pinned,
+    pinnedAt: pinned ? Timestamp.now() : null,
+  });
+}
+
+export async function editPost(sessionId: string, postId: string, content: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "posts", postId), {
+    content,
+    editedAt: Timestamp.now(),
+  });
+}
+
+export async function editMessage(sessionId: string, messageId: string, content: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "messages", messageId), {
+    content,
+    editedAt: Timestamp.now(),
+  });
+}
+
+// 본인 작성물 편집 가능 시간 (분)
+export const EDIT_WINDOW_MINUTES = 5;
+
+export function canEditWindow(createdAt: Timestamp | undefined): boolean {
+  if (!createdAt?.toDate) return false;
+  const ms = Date.now() - createdAt.toDate().getTime();
+  return ms < EDIT_WINDOW_MINUTES * 60 * 1000;
+}
+
+// --- 세션 라이프사이클 ---
+
+export async function endSession(sessionId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    status: "ended",
+    endedAt: Timestamp.now(),
+  });
+}
+
+export async function reopenSession(sessionId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    status: "active",
+    endedAt: null,
+  });
+}
+
+export async function archiveSession(sessionId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    status: "archived",
+  });
+}
+
+export function getSessionStatus(s: Session): SessionStatus {
+  return s.status || "active";
+}
+
 export function onPosts(sessionId: string, callback: (posts: Post[]) => void) {
   const q = query(
     collection(getDb(), "sessions", sessionId, "posts"),
     orderBy("gridIndex", "asc")
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Post));
+    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Post);
+    // 클라이언트 정렬: 핀이 위, 그 다음 gridIndex
+    list.sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return a.gridIndex - b.gridIndex;
+    });
+    callback(list);
   });
 }
 

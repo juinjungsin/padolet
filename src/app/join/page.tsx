@@ -39,6 +39,12 @@ function JoinForm() {
         setLoading(false);
         return;
       }
+      if (session.status === "ended" || session.status === "archived") {
+        setError("종료된 세션입니다. 새로 입장할 수 없습니다.");
+        setStep("code");
+        setLoading(false);
+        return;
+      }
       setSessionId(session.id);
       setSessionTitle(session.title);
       setStep("name");

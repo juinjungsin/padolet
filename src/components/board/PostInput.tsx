@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { addPost, containsBannedWord, isNameBlocked } from "@/lib/firestore";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, validateFiles } from "@/lib/storage";
 import Button from "@/components/ui/Button";
 import { RiImageAddLine } from "react-icons/ri";
 
@@ -66,6 +66,14 @@ export default function PostInput({
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // SVG/HTML 등 위험한 형식 차단
+    const { valid, errors } = validateFiles([file]);
+    if (errors.length > 0 || valid.length === 0) {
+      setError(errors[0] || "허용되지 않은 파일입니다.");
+      e.target.value = "";
+      return;
+    }
 
     setLoading(true);
     setUploadProgress(0);

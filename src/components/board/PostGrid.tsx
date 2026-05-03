@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Post, onPosts, deletePost } from "@/lib/firestore";
+import { isSafeExternalUrl } from "@/lib/url-safe";
 import Card from "@/components/ui/Card";
 import { RiDeleteBinLine, RiFileCopyLine } from "react-icons/ri";
 
 function renderTextWithLinks(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/gi);
   return parts.map((part, i) => {
-    if (/^https?:\/\//i.test(part)) {
+    if (/^https?:\/\//i.test(part) && isSafeExternalUrl(part)) {
       return (
         <a
           key={i}
@@ -54,6 +55,9 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
   function renderContent(post: Post) {
     switch (post.type) {
       case "link":
+        if (!isSafeExternalUrl(post.content)) {
+          return <p className="text-sm text-ash-text break-all">{post.content}</p>;
+        }
         return (
           <a
             href={post.content}
@@ -71,12 +75,19 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
               src={post.fileUrl}
               alt={post.fileMeta?.name || "이미지"}
               className="w-full rounded-lg mb-2 cursor-pointer"
-              onClick={() => window.open(post.fileUrl, "_blank")}
+              onClick={() => {
+                if (post.fileUrl && isSafeExternalUrl(post.fileUrl)) {
+                  window.open(post.fileUrl, "_blank", "noopener,noreferrer");
+                }
+              }}
             />
             {post.content && <p className="text-sm text-obsidian">{post.content}</p>}
           </div>
         );
       case "file":
+        if (!post.fileUrl || !isSafeExternalUrl(post.fileUrl)) {
+          return <span className="text-sm text-ash-text">📎 {post.fileMeta?.name || "파일"} (차단됨)</span>;
+        }
         return (
           <a
             href={post.fileUrl}

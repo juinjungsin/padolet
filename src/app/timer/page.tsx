@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { isSafeInternalPath } from "@/lib/url-safe";
 import {
   RiPlayFill,
   RiPauseFill,
@@ -27,7 +28,9 @@ function format(seconds: number): string {
 
 function TimerContent() {
   const searchParams = useSearchParams();
-  const back = searchParams.get("back") || "/";
+  const rawBack = searchParams.get("back");
+  // open redirect 차단 — 내부 절대경로만 허용, 그 외에는 홈으로 fallback
+  const back = isSafeInternalPath(rawBack) ? (rawBack as string) : "/";
   const isBoardBack = back.startsWith("/board/");
 
   const [selectedMin, setSelectedMin] = useState(10);

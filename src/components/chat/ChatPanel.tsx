@@ -12,6 +12,7 @@ import {
   unhideMessage,
 } from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
+import { isSafeExternalUrl } from "@/lib/url-safe";
 import {
   RiSendPlaneFill,
   RiAttachmentLine,
@@ -25,7 +26,7 @@ import {
 function renderTextWithLinks(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/gi);
   return parts.map((part, i) => {
-    if (/^https?:\/\//i.test(part)) {
+    if (/^https?:\/\//i.test(part) && isSafeExternalUrl(part)) {
       return (
         <a
           key={i}
@@ -296,15 +297,19 @@ export default function ChatPanel({
                     : "bg-powder text-obsidian"
                 }`}
               >
-                {msg.type === "image" && msg.fileUrl && (
+                {msg.type === "image" && msg.fileUrl && isSafeExternalUrl(msg.fileUrl) && (
                   <img
                     src={msg.fileUrl}
                     alt={msg.fileMeta?.name || "이미지"}
                     className="max-w-full rounded-lg mb-1 cursor-pointer"
-                    onClick={() => window.open(msg.fileUrl, "_blank")}
+                    onClick={() => {
+                      if (msg.fileUrl && isSafeExternalUrl(msg.fileUrl)) {
+                        window.open(msg.fileUrl, "_blank", "noopener,noreferrer");
+                      }
+                    }}
                   />
                 )}
-                {msg.type === "file" && msg.fileUrl && (
+                {msg.type === "file" && msg.fileUrl && isSafeExternalUrl(msg.fileUrl) && (
                   <a
                     href={msg.fileUrl}
                     target="_blank"

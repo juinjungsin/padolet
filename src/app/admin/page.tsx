@@ -258,6 +258,15 @@ export default function AdminPage() {
                 <div>
                   <p className="text-sm font-medium text-ink">
                     {s.title}
+                    {s.createdAt?.toDate && (
+                      <span className="ml-2 text-xs text-ash-text font-normal">
+                        {s.createdAt.toDate().toLocaleDateString("ko-KR", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })}
+                      </span>
+                    )}
                     {isSuper && !ownsSession && (
                       <span className="ml-2 text-[10px] uppercase tracking-wider bg-linen text-ink px-2 py-0.5 rounded-full font-semibold">
                         타 관리자

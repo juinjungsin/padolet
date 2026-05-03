@@ -42,13 +42,15 @@ export default function Nav({ sessionTitle, sessionCode, sessionId, participantC
           </div>
         )}
 
-        <Link
-          href="/timer"
-          className="hidden sm:inline-flex items-center gap-1 text-xs text-slate-text hover:text-graphite transition-colors"
-        >
-          <RiTimerLine size={14} />
-          <span>쉬는시간</span>
-        </Link>
+        {sessionId && (
+          <Link
+            href={`/timer?back=/board/${sessionId}`}
+            className="inline-flex items-center gap-1 text-xs text-slate-text hover:text-graphite transition-colors"
+          >
+            <RiTimerLine size={14} />
+            <span className="hidden sm:inline">쉬는시간</span>
+          </Link>
+        )}
 
         {sessionId && (
           <Link

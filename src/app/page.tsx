@@ -26,7 +26,7 @@ export default function Home() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4 py-16">
       <div className="text-center mb-10">
-        <Image src="/icon.png" alt="padolet" width={72} height={72} className="mx-auto mb-5 rounded-2xl" />
+        <Image src="/icon.png" alt="padolet" width={108} height={108} className="mx-auto mb-5 rounded-2xl" />
         <span className="inline-block bg-linen text-ink text-xs font-semibold px-3 py-1 rounded-full mb-5 tracking-wide">
           교육용 실시간 보드
         </span>
@@ -37,7 +37,7 @@ export default function Home() {
           padolet
         </h1>
         <p className="text-base text-slate-text max-w-md">
-          포스트잇과 채팅으로 강사와 수강생이 한 화면에서 호흡하는 워크스페이스
+          파도치듯 주고받는 커뮤니케이션 보드
         </p>
       </div>
 
@@ -60,12 +60,9 @@ export default function Home() {
         </form>
       </Card>
 
-      <div className="mt-6 flex items-center gap-4">
+      <div className="mt-6">
         <Button variant="outlined" onClick={() => router.push("/admin")}>
-          강사 로그인
-        </Button>
-        <Button variant="outlined" onClick={() => router.push("/timer")}>
-          쉬는시간 타이머
+          관리자 로그인
         </Button>
       </div>
     </div>

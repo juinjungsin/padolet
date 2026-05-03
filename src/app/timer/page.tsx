@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import {
   RiPlayFill,
   RiPauseFill,
   RiRefreshLine,
   RiVolumeUpFill,
   RiVolumeMuteFill,
+  RiArrowLeftLine,
 } from "react-icons/ri";
 
-const MIN_MINUTES = 5;
-const MAX_MINUTES = 60;
-const STEP_MINUTES = 5;
 const PRESETS = [5, 10, 15, 20, 30, 45, 60];
 
 const MUSIC_SRC = "/audio/break-music.mp3";
@@ -26,7 +25,11 @@ function format(seconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export default function TimerPage() {
+function TimerContent() {
+  const searchParams = useSearchParams();
+  const back = searchParams.get("back") || "/";
+  const isBoardBack = back.startsWith("/board/");
+
   const [selectedMin, setSelectedMin] = useState(10);
   const [remaining, setRemaining] = useState(10 * 60);
   const [running, setRunning] = useState(false);
@@ -121,6 +124,14 @@ export default function TimerPage() {
           padolet
         </Link>
         <span className="ml-3 text-sm text-slate-text hidden sm:inline">쉬는시간 타이머</span>
+
+        <Link
+          href={back}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold bg-transparent text-graphite border border-graphite hover:bg-vellum transition-colors"
+        >
+          <RiArrowLeftLine size={14} />
+          {isBoardBack ? "보드로 돌아가기" : "돌아가기"}
+        </Link>
       </div>
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
@@ -234,10 +245,6 @@ export default function TimerPage() {
           })}
         </div>
 
-        <p className="mt-6 text-xs text-ash-text">
-          {MIN_MINUTES}분 단위 · 최대 {MAX_MINUTES}분 · 단계 {STEP_MINUTES}분
-        </p>
-
         {musicMissing && (
           <p className="mt-3 text-xs text-terracotta">
             음악 파일을 찾을 수 없습니다 — public/audio/break-music.mp3 위치에 추가하세요.
@@ -254,5 +261,19 @@ export default function TimerPage() {
       />
       <audio ref={alarmRef} src={ALARM_SRC} preload="auto" />
     </div>
+  );
+}
+
+export default function TimerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
+          로딩 중...
+        </div>
+      }
+    >
+      <TimerContent />
+    </Suspense>
   );
 }

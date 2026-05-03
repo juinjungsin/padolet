@@ -179,6 +179,16 @@ export default function ReportPage() {
             </div>
           </Card>
         </div>
+
+        <div className="mt-10 pt-6 border-t border-silver-mist flex items-center justify-start gap-2">
+          <Button variant="ghost" onClick={() => router.push(`/board/${sessionId}`)}>
+            보드로 돌아가기
+          </Button>
+          <Button variant="ghost" onClick={handleCopy}>
+            {copied ? "Copied!" : "Copy"}
+          </Button>
+          <Button onClick={downloadReport}>MD 다운로드</Button>
+        </div>
       </div>
     </div>
   );

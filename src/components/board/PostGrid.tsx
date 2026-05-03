@@ -69,17 +69,21 @@ export default function PostGrid({ sessionId, isAdmin }: PostGridProps) {
           </a>
         );
       case "image":
+        if (!post.fileUrl || !isSafeExternalUrl(post.fileUrl)) {
+          return (
+            <div className="text-xs text-ash-text">
+              🖼️ {post.fileMeta?.name || "이미지"} (차단됨)
+              {post.content && <p className="text-sm text-obsidian mt-1">{post.content}</p>}
+            </div>
+          );
+        }
         return (
           <div>
             <img
               src={post.fileUrl}
               alt={post.fileMeta?.name || "이미지"}
               className="w-full rounded-lg mb-2 cursor-pointer"
-              onClick={() => {
-                if (post.fileUrl && isSafeExternalUrl(post.fileUrl)) {
-                  window.open(post.fileUrl, "_blank", "noopener,noreferrer");
-                }
-              }}
+              onClick={() => window.open(post.fileUrl, "_blank", "noopener,noreferrer")}
             />
             {post.content && <p className="text-sm text-obsidian">{post.content}</p>}
           </div>

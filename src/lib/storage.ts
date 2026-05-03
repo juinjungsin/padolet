@@ -84,6 +84,8 @@ export const ALLOWED_MIME_EXACT = new Set([
   "application/x-hwp",
   "application/haansofthwp",
   "application/vnd.hancom.hwpx",
+  "application/haansofthwpx",
+  "application/x-hwpx",
   "text/plain",
   "text/csv",
   "text/markdown",

@@ -132,6 +132,8 @@ export default function BoardPage() {
               authorId={participant.participantId}
               authorName={participant.name}
               currentPostCount={postCount}
+              bannedWords={bannedWords}
+              blockedNames={blockedNames}
             />
             <PostGrid sessionId={sessionId} isAdmin={isAdmin} />
           </div>
@@ -141,6 +143,9 @@ export default function BoardPage() {
               sessionId={sessionId}
               authorId={participant.participantId}
               authorName={participant.name}
+              isAdmin={isAdmin}
+              bannedWords={bannedWords}
+              blockedNames={blockedNames}
             />
           </div>
         )}

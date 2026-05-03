@@ -21,10 +21,10 @@ const handler = NextAuth({
       if (isSuperAdmin(email)) return true;
       try {
         return await isDelegatedAdmin(email);
-      } catch {
-        // Firestore 조회 실패 시 일단 허용 (admin 페이지에서 다시 권한 체크)
-        // 차단을 더 엄격하게 하려면 false 반환
-        return true;
+      } catch (err) {
+        // fail-closed — Firestore 조회 실패 시 로그인 거부
+        console.error("[next-auth] admin allowlist lookup failed", err);
+        return false;
       }
     },
     async session({ session, token }) {

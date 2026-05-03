@@ -144,6 +144,18 @@ export default function ChatPanel({
   }
 
   async function uploadAndSendFile(file: File) {
+    // 모든 업로드 경로(파일선택/드래그앤드롭/붙여넣기)에 공통으로 검증 적용
+    const { valid, errors } = validateFiles([file]);
+    if (errors.length > 0 || valid.length === 0) {
+      await addMessage(sessionId, {
+        authorId,
+        authorName,
+        content: `⚠️ ${errors[0] || `${file.name} 업로드 거부됨`}`,
+        type: "text",
+      });
+      return;
+    }
+
     const fileKey = `${file.name}_${Date.now()}`;
     const { promise } = uploadFile(sessionId, file, (p) => {
       setUploadProgress((prev) => ({ ...prev, [fileKey]: p }));

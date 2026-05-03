@@ -2,11 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import {
   getSession,
+  getRole,
+  isSuperAdmin,
+  Role,
   Session,
   Post,
   Message,
@@ -23,6 +27,7 @@ import { db as getDb } from "@/lib/firebase";
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: authSession, status: authStatus } = useSession();
   const sessionId = params.sessionId as string;
 
   const [session, setSession] = useState<Session | null>(null);
@@ -30,10 +35,53 @@ export default function ReportPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<Role | null>(null);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
+  const adminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
+  const email = authSession?.user?.email || null;
+
+  // 1단계: 역할 확인 (super / admin / none)
   useEffect(() => {
-    loadReport();
-  }, [sessionId]);
+    if (authStatus === "loading") return;
+    if (!email) {
+      setRole("none");
+      return;
+    }
+    let cancelled = false;
+    getRole(email).then((r) => {
+      if (!cancelled) setRole(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [email, authStatus]);
+
+  // 2단계: 역할 확인되면 세션 소유 여부 검사 후 데이터 로드
+  useEffect(() => {
+    if (!role) return;
+    if (role === "none") {
+      setAuthorized(false);
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      const s = await getSession(sessionId);
+      if (!s) {
+        setAuthorized(false);
+        setLoading(false);
+        return;
+      }
+      // super는 모두 허용, admin은 본인 createdBy만 허용
+      if (isSuperAdmin(email) || s.createdBy === adminId) {
+        setAuthorized(true);
+        await loadReport();
+      } else {
+        setAuthorized(false);
+        setLoading(false);
+      }
+    })();
+  }, [role, sessionId, email, adminId]);
 
   async function loadReport() {
     const s = await getSession(sessionId);
@@ -108,6 +156,33 @@ export default function ReportPage() {
   function exportPdf() {
     // 브라우저 인쇄 다이얼로그 → "PDF로 저장" 선택. 인쇄용 CSS는 globals.css의 @media print
     window.print();
+  }
+
+  if (authStatus === "loading" || (authorized === null && role !== "none")) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
+        권한 확인 중...
+      </div>
+    );
+  }
+
+  if (authorized === false) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-parchment p-6">
+        <Card className="max-w-md p-8 text-center">
+          <h2
+            className="font-display text-2xl text-graphite mb-3"
+            style={{ fontWeight: 700, letterSpacing: "-0.6px" }}
+          >
+            접근 권한이 없습니다
+          </h2>
+          <p className="text-sm text-slate-text mb-6">
+            이 레포트는 세션을 생성한 관리자 또는 super_admin만 열람할 수 있습니다.
+          </p>
+          <Button onClick={() => router.push("/")}>홈으로</Button>
+        </Card>
+      </div>
+    );
   }
 
   if (loading) {

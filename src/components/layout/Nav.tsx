@@ -60,7 +60,7 @@ export default function Nav({
           </Link>
         )}
 
-        {sessionId && (
+        {sessionId && isAdmin && (
           <Link
             href={`/admin/report/${sessionId}`}
             className="flex items-center gap-1 text-xs text-slate-text hover:text-graphite transition-colors"

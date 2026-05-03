@@ -10,11 +10,15 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
   onSnapshot,
   serverTimestamp,
   increment,
   writeBatch,
   Timestamp,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from "firebase/firestore";
 import { db as getDb } from "./firebase";
 
@@ -527,4 +531,100 @@ export function onMessages(sessionId: string, callback: (messages: Message[]) =>
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Message));
   });
+}
+
+/**
+ * 메시지 페이지네이션 구독.
+ * - 최신 N개를 createdAt desc로 가져온 뒤 화면 표시 시 오름차순으로 reverse
+ * - loadMore() 호출 시 더 오래된 N개를 추가 페이지로 가져옴
+ * - 새 메시지(real-time)는 별도 onSnapshot으로 처리 (latestQuery)
+ */
+export const MESSAGES_PAGE_SIZE = 50;
+
+export interface PaginatedMessages {
+  messages: Message[];
+  hasMore: boolean;
+  loadMore: () => Promise<void>;
+  unsubscribe: () => void;
+}
+
+export function subscribeMessagesPaginated(
+  sessionId: string,
+  pageSize: number,
+  callback: (state: { messages: Message[]; hasMore: boolean }) => void
+): { loadMore: () => Promise<void>; unsubscribe: () => void } {
+  const col = collection(getDb(), "sessions", sessionId, "messages");
+
+  let oldestCursor: QueryDocumentSnapshot<DocumentData> | null = null;
+  let initialDocs: Message[] = [];
+  let liveDocs: Message[] = [];
+  let olderDocs: Message[] = [];
+  let hasMore = true;
+
+  function emit() {
+    // 합쳐서 createdAt asc 정렬 + dedup
+    const map = new Map<string, Message>();
+    [...olderDocs, ...initialDocs, ...liveDocs].forEach((m) => {
+      if (m.id) map.set(m.id, m);
+    });
+    const merged = Array.from(map.values()).sort((a, b) => {
+      const at = a.createdAt?.toMillis?.() || 0;
+      const bt = b.createdAt?.toMillis?.() || 0;
+      return at - bt;
+    });
+    callback({ messages: merged, hasMore });
+  }
+
+  // 1단계: 최신 pageSize 만큼 1회 조회 (커서 확보)
+  const initialQuery = query(col, orderBy("createdAt", "desc"), limit(pageSize));
+  const initPromise = getDocs(initialQuery).then((snap) => {
+    if (snap.empty) {
+      hasMore = false;
+      emit();
+      return;
+    }
+    initialDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Message);
+    oldestCursor = snap.docs[snap.docs.length - 1];
+    hasMore = snap.docs.length === pageSize;
+    emit();
+  });
+
+  // 2단계: 최신 메시지 실시간 구독 — initialDocs의 가장 최신보다 새로운 것만
+  let liveUnsub = () => {};
+  initPromise.then(() => {
+    const newestTimestamp = initialDocs[0]?.createdAt;
+    const liveQuery = newestTimestamp
+      ? query(col, orderBy("createdAt", "asc"), where("createdAt", ">", newestTimestamp))
+      : query(col, orderBy("createdAt", "asc"));
+    liveUnsub = onSnapshot(liveQuery, (snap) => {
+      liveDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Message);
+      emit();
+    });
+  });
+
+  async function loadMore() {
+    if (!hasMore || !oldestCursor) return;
+    const q = query(
+      col,
+      orderBy("createdAt", "desc"),
+      startAfter(oldestCursor),
+      limit(pageSize)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      hasMore = false;
+      emit();
+      return;
+    }
+    const more = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Message);
+    olderDocs = [...more, ...olderDocs];
+    oldestCursor = snap.docs[snap.docs.length - 1];
+    hasMore = snap.docs.length === pageSize;
+    emit();
+  }
+
+  return {
+    loadMore,
+    unsubscribe: () => liveUnsub(),
+  };
 }

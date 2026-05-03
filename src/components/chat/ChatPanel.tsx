@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Message,
-  onMessages,
+  subscribeMessagesPaginated,
+  MESSAGES_PAGE_SIZE,
   addMessage,
   containsBannedWord,
   isNameBlocked,
@@ -72,6 +73,9 @@ export default function ChatPanel({
   blockedNames = [],
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const loadMoreRef = useRef<(() => Promise<void>) | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -87,9 +91,30 @@ export default function ChatPanel({
   const blocked = isNameBlocked(authorName, blockedNames);
 
   useEffect(() => {
-    const unsub = onMessages(sessionId, setMessages);
-    return () => unsub();
+    const sub = subscribeMessagesPaginated(sessionId, MESSAGES_PAGE_SIZE, (state) => {
+      setMessages(state.messages);
+      setHasMore(state.hasMore);
+    });
+    loadMoreRef.current = sub.loadMore;
+    return () => {
+      sub.unsubscribe();
+      loadMoreRef.current = null;
+    };
   }, [sessionId]);
+
+  async function handleLoadMore() {
+    if (!loadMoreRef.current || loadingMore) return;
+    setLoadingMore(true);
+    const prevHeight = scrollRef.current?.scrollHeight || 0;
+    await loadMoreRef.current();
+    // 추가 로드 후 사용자가 보던 위치 유지
+    requestAnimationFrame(() => {
+      if (!scrollRef.current) return;
+      const diff = scrollRef.current.scrollHeight - prevHeight;
+      scrollRef.current.scrollTop = diff;
+    });
+    setLoadingMore(false);
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -314,6 +339,17 @@ export default function ChatPanel({
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        {hasMore && (
+          <div className="flex justify-center mb-2">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="text-xs text-slate-text hover:text-graphite px-3 py-1 rounded-full border border-silver-mist hover:border-graphite transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {loadingMore ? "불러오는 중..." : "이전 메시지 보기"}
+            </button>
+          </div>
+        )}
         {messages.map((msg) => (
           <div key={msg.id} className={`${msg.authorId === authorId ? "text-right" : ""}`}>
             <p className="text-[10px] text-gravel mb-0.5">{msg.authorName}</p>

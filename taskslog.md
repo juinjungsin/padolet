@@ -143,3 +143,44 @@ Git 커밋 이력
   - DNS 전파 대기: juinjungsin.site → 76.76.21.21 (가비아 설정 완료, 전파 중)
   - Firebase Auth 승인된 도메인에 juinjungsin.site 추가 필요
   - Google OAuth 리디렉션 URI: 프로덕션 도메인 동작 확인 필요
+
+
+Phase 6 — Firestore Rules 재설계 및 인증 이중화 (2026-07-08)
+
+  문제
+    - Firebase Console의 Rules는 'request.auth.token.email == jongbin@gmail.com' 요구
+    - 앱은 NextAuth로만 로그인, Firebase Auth signIn 호출 없음 → request.auth == null
+    - 결과: 모든 write 실패 (세션 생성 포함)
+
+  변경 파일 (신설 4, 수정 5)
+    신설
+      firestore.rules              컬렉션별 세밀 rules (관리자/참여자 경로 분리)
+      firestore.indexes.json       createdBy+createdAt 복합 인덱스
+      firebase.json                CLI 배포 설정
+      .firebaserc                  프로젝트 alias (jblet-3e6c3)
+      src/components/auth/FirebaseAuthSync.tsx
+                                   NextAuth 세션 → Firebase Auth 이중 로그인 트리거
+
+    수정
+      src/app/api/auth/[...nextauth]/route.ts
+                                   jwt callback에서 Google id_token 저장, session에 노출
+      src/lib/firebase.ts          signInWithGoogleCredential, signInAsAnonymousUser 추가
+      src/lib/firestore.ts         addParticipant를 uid 기준 setDoc로 변경 (중복 카운트 방지)
+      src/app/join/page.tsx        Anonymous Auth 트리거, uid를 participantId로 사용
+      src/app/admin/page.tsx       adminId → firebaseUid 통일, createdBy는 firebase uid
+      src/components/auth/AuthProvider.tsx
+                                   FirebaseAuthSync 삽입
+
+  아키텍처
+    관리자: NextAuth Google 로그인 → id_token → Firebase signInWithCredential
+            → request.auth.token.email로 admin/super 판별
+    참여자: /join 완료 시 signInAnonymously → uid를 participantId로
+            → participants/{uid} 존재 여부로 세션 참여 판별
+
+  배포 대기 항목
+    1) Firebase Console → Authentication → Sign-in method
+       - Google (활성 확인)
+       - Anonymous (활성화 필요)
+    2) npx firebase-tools deploy --only firestore:rules --project jblet-3e6c3
+    3) 기존 세션 데이터의 createdBy 값 = NextAuth sub → 새 규칙으로는 소유자로 인식 안 됨
+       (개발 초기라 무시 가능. 기존 데이터 유지 원하면 마이그레이션 스크립트 필요)

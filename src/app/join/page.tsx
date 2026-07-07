@@ -7,6 +7,7 @@ import Input from "@/components/ui/Input";
 import Card from "@/components/ui/Card";
 import { getSessionByCode } from "@/lib/firestore";
 import { addParticipant } from "@/lib/firestore";
+import { signInAsAnonymousUser } from "@/lib/firebase";
 
 function JoinForm() {
   const searchParams = useSearchParams();
@@ -68,10 +69,14 @@ function JoinForm() {
     }
     setLoading(true);
     try {
+      // Firebase 익명 로그인 → firestore write 권한(request.auth) 확보.
+      // 이미 로그인 상태면 no-op. 참여자 문서 ID로 이 uid를 사용.
+      const authUser = await signInAsAnonymousUser();
+
       const displayName = isAnonymous
         ? `익명#${String(Math.floor(Math.random() * 9999)).padStart(4, "0")}`
         : name.trim();
-      const participantId = await addParticipant(sessionId, {
+      const participantId = await addParticipant(sessionId, authUser.uid, {
         name: displayName,
         isAnonymous,
         isOnline: true,

@@ -1,0 +1,151 @@
+rules_version = '2';
+
+// padolet Firestore 보안 규칙
+// 설계 원칙
+// - 기본 deny. 필요한 경로만 명시적으로 열기.
+// - 인증은 Firebase Auth 기준 (NextAuth와 이중 로그인 동기화 필요).
+//   super_admin / delegated admin: Google credential 로그인 → request.auth.token.email 검증
+//   참여자: signInAnonymously → request.auth.uid로 식별
+// - 세션 소유자 판별은 sessions/{sessionId}.createdBy == request.auth.uid 로 통일
+// - 포스트잇/메시지의 authorId는 firebase auth uid 저장
+// - 참여자 문서 ID는 firebase auth uid 사용 → 참여 여부 판별을 exists()로 O(1)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- 헬퍼 ----------
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthed() && request.auth.token.email == 'jongbin@gmail.com';
+    }
+
+    // delegated admin — admins/{email} 문서 존재로 판별
+    function isDelegatedAdmin() {
+      return isAuthed()
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || isDelegatedAdmin();
+    }
+
+    // 세션 관리자 = super_admin 또는 해당 세션 소유자
+    function isSessionAdmin(sessionId) {
+      return isSuperAdmin()
+        || (isAuthed()
+            && get(/databases/$(database)/documents/sessions/$(sessionId)).data.createdBy == request.auth.uid);
+    }
+
+    // 세션 참여자 = participants/{uid} 도큐먼트 존재
+    function isSessionParticipant(sessionId) {
+      return isAuthed()
+        && exists(/databases/$(database)/documents/sessions/$(sessionId)/participants/$(request.auth.uid));
+    }
+
+    // 본인 작성물 편집 가능 시간 (5분) — 앱 로직과 동일
+    function withinEditWindow(createdAt) {
+      return createdAt != null
+        && request.time < createdAt + duration.value(5, 'm');
+    }
+
+    // ---------- admins ----------
+    // NextAuth signIn callback이 read함 → 공개 read 유지
+    // write는 super_admin만
+    match /admins/{email} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ---------- sessions ----------
+    match /sessions/{sessionId} {
+      // 조회는 공개 (참여자가 로그인 전에 코드로 세션 찾기 위해서라도 필요)
+      allow read: if true;
+
+      // 생성: 관리자만, createdBy는 반드시 본인 uid
+      allow create: if isAdmin()
+        && request.resource.data.createdBy == request.auth.uid;
+
+      // 수정/삭제: 소유자 또는 super_admin
+      allow update, delete: if isSuperAdmin()
+        || (isAuthed() && resource.data.createdBy == request.auth.uid);
+
+      // ---------- participants ----------
+      // 문서 ID = firebase auth uid
+      match /participants/{participantId} {
+        allow read: if true;
+
+        // 참여자 본인만 자신의 문서 생성 (익명 로그인 후)
+        allow create: if isAuthed()
+          && participantId == request.auth.uid;
+
+        // 본인 문서만 업데이트 (isOnline, lastSeenAt 등)
+        allow update: if isAuthed()
+          && participantId == request.auth.uid;
+
+        // 삭제는 세션 관리자만 (본인 탈퇴는 update로 표현)
+        allow delete: if isSessionAdmin(sessionId);
+      }
+
+      // ---------- posts (포스트잇) ----------
+      match /posts/{postId} {
+        allow read: if true;
+
+        // 세션 참여자만 작성. authorId는 반드시 본인 uid
+        allow create: if isSessionParticipant(sessionId)
+          && request.resource.data.authorId == request.auth.uid;
+
+        // 수정: 본인(5분 이내) 또는 세션 관리자
+        allow update: if isSessionAdmin(sessionId)
+          || (isAuthed()
+              && resource.data.authorId == request.auth.uid
+              && withinEditWindow(resource.data.createdAt));
+
+        // 삭제: 본인 또는 세션 관리자
+        allow delete: if isSessionAdmin(sessionId)
+          || (isAuthed() && resource.data.authorId == request.auth.uid);
+      }
+
+      // ---------- messages (대화) ----------
+      match /messages/{messageId} {
+        allow read: if true;
+
+        // 세션 참여자만 작성
+        allow create: if isSessionParticipant(sessionId)
+          && request.resource.data.authorId == request.auth.uid;
+
+        // 수정: 본인(5분 이내) 또는 세션 관리자 (모더레이션 hidden 필드 토글용)
+        allow update: if isSessionAdmin(sessionId)
+          || (isAuthed()
+              && resource.data.authorId == request.auth.uid
+              && withinEditWindow(resource.data.createdAt));
+
+        // 삭제: 세션 관리자만
+        allow delete: if isSessionAdmin(sessionId);
+      }
+
+      // ---------- polls (투표/퀴즈) ----------
+      match /polls/{pollId} {
+        allow read: if true;
+
+        // 세션 관리자만 생성/수정/삭제
+        allow create, update, delete: if isSessionAdmin(sessionId);
+
+        // ---------- votes ----------
+        // 문서 ID = voter uid → 1인 1표
+        match /votes/{voterId} {
+          allow read: if true;
+
+          allow create, update: if isAuthed()
+            && voterId == request.auth.uid;
+
+          allow delete: if isSessionAdmin(sessionId);
+        }
+      }
+    }
+  }
+}

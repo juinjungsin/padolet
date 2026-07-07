@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
+import { onAuthStateChanged } from "firebase/auth";
 import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -23,6 +24,7 @@ import {
   Session,
   SUPER_ADMIN_EMAIL,
 } from "@/lib/firestore";
+import { auth as firebaseAuth } from "@/lib/firebase";
 import { generateSessionCode } from "@/lib/session-code";
 import QRCode from "qrcode";
 
@@ -40,10 +42,19 @@ export default function AdminPage() {
   const [deleteTarget, setDeleteTarget] = useState<(Session & { id: string }) | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
+  // Firestore Rules는 Firebase Auth uid로 세션 소유자를 판별하므로 NextAuth의 sub 대신 이 값을 사용.
+  const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
 
-  const adminId = (session?.user as Record<string, unknown>)?.id as string | undefined;
   const email = session?.user?.email || null;
   const isSuper = isSuperAdmin(email);
+
+  // Firebase Auth 상태 구독 (FirebaseAuthSync가 이중 로그인 완료 시점 감지)
+  useEffect(() => {
+    const unsub = onAuthStateChanged(firebaseAuth(), (u) => {
+      setFirebaseUid(u?.uid ?? null);
+    });
+    return () => unsub();
+  }, []);
 
   // 로그인 직후 역할 결정 (super / admin / none)
   useEffect(() => {
@@ -60,22 +71,22 @@ export default function AdminPage() {
     };
   }, [email]);
 
-  // 역할이 결정되면 해당 권한에 맞는 세션 목록 조회
+  // 역할이 결정되고 Firebase Auth uid도 준비되면 세션 목록 조회
   useEffect(() => {
-    if (!adminId || !role) return;
+    if (!firebaseUid || !role) return;
     if (role === "none") {
       setSessions([]);
       return;
     }
-    loadSessions(role, adminId);
-  }, [adminId, role]);
+    loadSessions(role, firebaseUid);
+  }, [firebaseUid, role]);
 
-  async function loadSessions(currentRole: Role, currentAdminId: string) {
+  async function loadSessions(currentRole: Role, currentUid: string) {
     if (currentRole === "super") {
       const list = await getAllSessions();
       setSessions(list);
     } else if (currentRole === "admin") {
-      const list = await getSessionsByAdmin(currentAdminId);
+      const list = await getSessionsByAdmin(currentUid);
       setSessions(list);
     } else {
       setSessions([]);
@@ -83,30 +94,40 @@ export default function AdminPage() {
   }
 
   async function reloadSessions() {
-    if (!adminId || !role) return;
-    await loadSessions(role, adminId);
+    if (!firebaseUid || !role) return;
+    await loadSessions(role, firebaseUid);
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !adminId) return;
+    if (!title.trim()) return;
+    if (!firebaseUid) {
+      alert("Firebase 인증 준비 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
     setCreating(true);
 
-    const code = generateSessionCode();
-    const sessionId = await createSession({
-      title: title.trim(),
-      description: description.trim(),
-      code,
-      createdBy: adminId,
-      requireGoogleLogin: false,
-    });
+    try {
+      const code = generateSessionCode();
+      const sessionId = await createSession({
+        title: title.trim(),
+        description: description.trim(),
+        code,
+        createdBy: firebaseUid,
+        requireGoogleLogin: false,
+      });
 
-    setTitle("");
-    setDescription("");
-    setShowCreate(false);
-    setCreating(false);
-    await reloadSessions();
-    showQR(code, sessionId);
+      setTitle("");
+      setDescription("");
+      setShowCreate(false);
+      await reloadSessions();
+      showQR(code, sessionId);
+    } catch (err) {
+      console.error("[admin] 세션 생성 실패", err);
+      alert("세션 생성에 실패했습니다. 브라우저 콘솔의 오류를 확인해주세요.");
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function showQR(code: string, sessionId: string) {
@@ -118,7 +139,7 @@ export default function AdminPage() {
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
     // 권한 재검증 — admin은 본인 세션만 삭제 가능
-    if (role === "admin" && deleteTarget.createdBy !== adminId) {
+    if (role === "admin" && deleteTarget.createdBy !== firebaseUid) {
       alert("이 세션을 삭제할 권한이 없습니다.");
       setDeleteTarget(null);
       return;
@@ -134,8 +155,8 @@ export default function AdminPage() {
     setDeleting(false);
   }
 
-  // 로딩 중
-  if (status === "loading" || (session && role === null)) {
+  // 로딩 중 (NextAuth 세션 or 역할 or Firebase Auth 준비 대기)
+  if (status === "loading" || (session && role === null) || (session && role !== "none" && !firebaseUid)) {
     return (
       <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
         로딩 중...
@@ -192,7 +213,7 @@ export default function AdminPage() {
   }
 
   const canDelete = (s: Session) =>
-    isSuper || (role === "admin" && s.createdBy === adminId);
+    isSuper || (role === "admin" && s.createdBy === firebaseUid);
 
   // 인증된 Admin 대시보드
   return (
@@ -256,7 +277,7 @@ export default function AdminPage() {
             </p>
           )}
           {sessions.map((s) => {
-            const ownsSession = s.createdBy === adminId;
+            const ownsSession = s.createdBy === firebaseUid;
             const status = getSessionStatus(s);
             const isEnded = status === "ended";
             return (

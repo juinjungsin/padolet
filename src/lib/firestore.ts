@@ -390,16 +390,37 @@ export async function dismissAnnouncement(sessionId: string) {
 
 // --- 참여자 ---
 
-export async function addParticipant(sessionId: string, data: Omit<Participant, "id" | "joinedAt" | "lastSeenAt">) {
-  const ref = await addDoc(collection(getDb(), "sessions", sessionId, "participants"), {
+/**
+ * 참여자 등록.
+ * - 문서 ID는 Firebase Auth UID로 고정 → Firestore Rules에서 참여 여부 검증에 사용.
+ * - 이미 존재하는 uid로 재입장 시 participantCount 중복 증가 방지 (isNew 판별).
+ * - setDoc merge: true 로 name/isAnonymous 등 최신값 반영, joinedAt은 최초 1회만 기록.
+ */
+export async function addParticipant(
+  sessionId: string,
+  uid: string,
+  data: Omit<Participant, "id" | "joinedAt" | "lastSeenAt">
+) {
+  const participantRef = doc(getDb(), "sessions", sessionId, "participants", uid);
+  const existing = await getDoc(participantRef);
+  const isNew = !existing.exists();
+
+  const payload: Record<string, unknown> = {
     ...data,
-    joinedAt: serverTimestamp(),
     lastSeenAt: serverTimestamp(),
-  });
-  await updateDoc(doc(getDb(), "sessions", sessionId), {
-    participantCount: increment(1),
-  });
-  return ref.id;
+  };
+  if (isNew) {
+    payload.joinedAt = serverTimestamp();
+  }
+
+  await setDoc(participantRef, payload, { merge: true });
+
+  if (isNew) {
+    await updateDoc(doc(getDb(), "sessions", sessionId), {
+      participantCount: increment(1),
+    });
+  }
+  return uid;
 }
 
 export function onParticipants(sessionId: string, callback: (participants: Participant[]) => void) {

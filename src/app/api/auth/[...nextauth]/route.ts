@@ -27,10 +27,32 @@ const handler = NextAuth({
         return false;
       }
     },
+    /**
+     * Google id_token을 JWT에 보관 → session에 노출 → 클라이언트 FirebaseAuthSync가
+     * signInWithCredential로 Firebase Auth 이중 로그인 트리거.
+     *
+     * Firestore Rules는 Firebase Auth의 request.auth.token.email로 관리자 판별하므로
+     * NextAuth만으로는 write 불가.
+     */
+    async jwt({ token, account }) {
+      if (account?.id_token) {
+        token.googleIdToken = account.id_token;
+        // Google id_token 유효기간(약 1시간)
+        token.googleIdTokenExpires = account.expires_at
+          ? account.expires_at * 1000
+          : Date.now() + 3600 * 1000;
+      }
+      return token;
+    },
     async session({ session, token }) {
       if (session.user) {
         (session.user as Record<string, unknown>).id = token.sub;
       }
+      // 클라이언트에서 Firebase Auth 이중 로그인에 사용
+      // Session 타입에 인덱스 시그니처가 없어 unknown 경유 캐스팅 필요
+      (session as unknown as Record<string, unknown>).googleIdToken = token.googleIdToken;
+      (session as unknown as Record<string, unknown>).googleIdTokenExpires =
+        token.googleIdTokenExpires;
       return session;
     },
   },

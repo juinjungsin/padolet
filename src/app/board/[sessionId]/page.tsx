@@ -12,7 +12,15 @@ import BoardToolbar from "@/components/board/BoardToolbar";
 import ParticipantsPanel from "@/components/board/ParticipantsPanel";
 import PollPanel from "@/components/poll/PollPanel";
 import ModerationPanel from "@/components/admin/ModerationPanel";
-import { getSession, onParticipants, onPosts, onSession, Session } from "@/lib/firestore";
+import {
+  getSession,
+  onParticipants,
+  onPosts,
+  onSession,
+  onModerationRules,
+  ModerationRules,
+  Session,
+} from "@/lib/firestore";
 import { RiChat3Line, RiStickyNoteLine } from "react-icons/ri";
 
 interface ParticipantInfo {
@@ -36,6 +44,12 @@ export default function BoardPage() {
   const [showParticipants, setShowParticipants] = useState(false);
   const [showPolls, setShowPolls] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // 모더레이션 규칙은 별도 서브컬렉션(sessions/{id}/moderation/rules)에서 실시간 구독.
+  // 세션 문서에 직접 두면 read: true 정책으로 미인증 사용자에게 노출됨.
+  const [moderation, setModeration] = useState<ModerationRules>({
+    bannedWords: [],
+    blockedNames: [],
+  });
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`padolet_${sessionId}`);
@@ -75,6 +89,13 @@ export default function BoardPage() {
     return () => unsub();
   }, [sessionId]);
 
+  // 모더레이션 규칙 실시간 구독 (참여자·관리자만 read 가능)
+  useEffect(() => {
+    if (!sessionId) return;
+    const unsub = onModerationRules(sessionId, setModeration);
+    return () => unsub();
+  }, [sessionId]);
+
   if (loading || !participant) {
     return (
       <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
@@ -85,8 +106,8 @@ export default function BoardPage() {
 
   const adminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
   const isAdmin = !!adminId && session?.createdBy === adminId;
-  const bannedWords = session?.bannedWords || [];
-  const blockedNames = session?.blockedNames || [];
+  const bannedWords = moderation.bannedWords;
+  const blockedNames = moderation.blockedNames;
 
   return (
     <div className="flex flex-col h-screen bg-parchment relative">
@@ -215,6 +236,8 @@ export default function BoardPage() {
         <ModerationPanel
           sessionId={sessionId}
           session={session}
+          bannedWords={bannedWords}
+          blockedNames={blockedNames}
           onClose={() => setShowModeration(false)}
         />
       )}

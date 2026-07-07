@@ -1,0 +1,73 @@
+rules_version = '2';
+
+// padolet Firebase Storage 보안 규칙
+// 설계 원칙
+// - 인증된 사용자만 업로드 (Firestore Rules와 동일한 request.auth 검증)
+// - 사이즈 상한 50MB (앱의 MAX_FILE_SIZE와 일치)
+// - MIME 화이트리스트: image/audio/video 계열 + 문서 계열
+// - SVG, HTML, JS 등 스크립트 실행 가능한 형식 명시 차단
+// - 읽기는 공개 (참여자가 첨부파일 다운로드)
+//
+// 클라이언트 validateFiles()는 UX용 사전 필터. API 우회 방지는 이 Rules가 담당.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /padolet/{sessionId}/{fileName} {
+
+      // 조회는 공개 — 세션 참여자·비참여자 모두 URL 알면 다운로드 가능
+      allow read: if true;
+
+      // 업로드는 인증 + 사이즈 + MIME 검증
+      allow write: if request.auth != null
+        && request.resource.size < 50 * 1024 * 1024
+        && isAllowedContentType(request.resource.contentType);
+
+      // 삭제는 별도 규칙 미허용 (앱에서 삭제 흐름 없음)
+    }
+  }
+
+  function isAllowedContentType(t) {
+    return t != null
+      && !isBlockedContentType(t)
+      && (
+        t.matches('image/(png|jpe?g|gif|webp|avif|heic|heif|bmp)')
+        || t.matches('audio/.*')
+        || t.matches('video/.*')
+        || t in [
+          'application/pdf',
+          'application/zip',
+          'application/x-zip-compressed',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'application/vnd.ms-excel',
+          'application/vnd.ms-powerpoint',
+          'application/vnd.hancom.hwp',
+          'application/x-hwp',
+          'application/haansofthwp',
+          'application/vnd.hancom.hwpx',
+          'application/haansofthwpx',
+          'application/x-hwpx',
+          'text/plain',
+          'text/csv',
+          'text/markdown'
+        ]
+      );
+  }
+
+  function isBlockedContentType(t) {
+    // SVG는 임의 스크립트를 실행할 수 있어 명시 차단 (image/svg+xml)
+    return t in [
+      'image/svg+xml',
+      'text/html',
+      'application/xhtml+xml',
+      'application/javascript',
+      'text/javascript',
+      'application/x-msdownload',
+      'application/x-msdos-program',
+      'application/x-sh'
+    ];
+  }
+}

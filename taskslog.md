@@ -184,3 +184,46 @@ Phase 6 — Firestore Rules 재설계 및 인증 이중화 (2026-07-08)
     2) npx firebase-tools deploy --only firestore:rules --project jblet-3e6c3
     3) 기존 세션 데이터의 createdBy 값 = NextAuth sub → 새 규칙으로는 소유자로 인식 안 됨
        (개발 초기라 무시 가능. 기존 데이터 유지 원하면 마이그레이션 스크립트 필요)
+
+
+Phase 7 — 보안 점검 후 즉시 처리 (2026-07-08)
+
+  배경
+    Firestore Rules + Firebase Auth 배포 직후 실시한 보안 점검 결과 중
+    Critical/High 항목 3개(D/E/F)를 이번 세션에 즉시 적용.
+    나머지 A(admins 공개 read), B(id_token 클라이언트 노출),
+    C(Anonymous Auth 남용 방어)는 리팩터링·외부 세팅 필요로 후속 작업 예정.
+
+  변경 파일 (신설 1, 수정 6)
+    신설
+      storage.rules                Firebase Storage MIME/사이즈 서버사이드 검증
+
+    수정
+      firebase.json                storage 섹션 추가
+      firestore.rules              sessions/{id}/moderation/{docId} 규칙 추가
+                                   (참여자·관리자만 read, 관리자만 write)
+      src/lib/session-code.ts      Math.random → crypto.getRandomValues (Uint32Array)
+      src/lib/firestore.ts         ModerationRules 인터페이스, onModerationRules/
+                                   getModerationRules 신설. addBannedWord 등을
+                                   moderation 서브컬렉션 대상으로 변경.
+                                   Session.bannedWords/blockedNames는 deprecated 유지
+      src/app/board/[sessionId]/page.tsx
+                                   moderation state + onModerationRules 구독,
+                                   ModerationPanel에 필드 prop 전달
+      src/components/admin/ModerationPanel.tsx
+                                   bannedWords/blockedNames를 props로 받도록 변경
+
+  개선 효과
+    D — 세션 코드 예측 공격 불가능 (CSPRNG 사용)
+    E — API 우회 SVG/HTML/JS 업로드 차단 (서버 Rules)
+    F — 미인증 사용자가 bannedWords/blockedNames 조회 못함
+        (참여자에게는 여전히 UX용 노출 — 트레이드오프)
+
+  배포 대기 항목
+    - npx firebase-tools deploy --only firestore:rules,storage:rules,firestore:indexes --project jblet-3e6c3
+    - Firebase Console → Storage 활성화 확인 (미활성 시 배포 실패)
+
+  기존 세션 문서의 bannedWords/blockedNames 처리
+    - 필드는 그대로 남아있지만 새 코드는 읽지 않음
+    - 신규 add/remove는 moderation/rules 서브컬렉션에 저장됨
+    - 기존 데이터 이관 원하면 마이그레이션 스크립트 별도 요청

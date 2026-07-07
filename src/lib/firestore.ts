@@ -95,30 +95,12 @@ export interface Session {
   createdAt: Timestamp;
   participantCount: number;
   requireGoogleLogin: boolean;
-  /**
-   * @deprecated bannedWords/blockedNames는 sessions/{id}/moderation/rules 서브컬렉션으로 이동됨.
-   * 세션 문서에 그대로 두면 read: true 정책으로 미인증 사용자에게 노출되기 때문.
-   * 필드는 하위 호환을 위해 optional로 남기지만 신규 쓰기는 서브컬렉션 사용.
-   */
   bannedWords?: string[];
-  /** @deprecated 위와 동일 */
   blockedNames?: string[];
   announcement?: Announcement | null;
   status?: SessionStatus; // 미설정 = 'active'로 간주
   endedAt?: Timestamp | null;
 }
-
-/**
- * 모더레이션 규칙 (금칙어, 차단 사용자 이름).
- * sessions/{sessionId}/moderation/rules 문서에 저장.
- * Rules로 세션 참여자·관리자에게만 read 허용 → 미인증 사용자 노출 차단.
- */
-export interface ModerationRules {
-  bannedWords: string[];
-  blockedNames: string[];
-}
-
-const MODERATION_DOC_ID = "rules";
 
 export interface Participant {
   id?: string;
@@ -203,11 +185,10 @@ export async function updateSession(sessionId: string, data: Partial<Session>) {
   await updateDoc(doc(getDb(), "sessions", sessionId), data);
 }
 
-// 세션 + 하위 컬렉션(participants/posts/messages/moderation) 일괄 삭제
-// polls는 별도 votes 서브컬렉션이 있어 deletePoll을 호출해야 안전 — 지금은 상위만 정리
+// 세션 + 하위 컬렉션(participants/posts/messages) 일괄 삭제
 export async function deleteSession(sessionId: string) {
   const db = getDb();
-  const subcollections = ["participants", "posts", "messages", "moderation"];
+  const subcollections = ["participants", "posts", "messages"];
 
   for (const sub of subcollections) {
     const snap = await getDocs(collection(db, "sessions", sessionId, sub));
@@ -331,60 +312,25 @@ export function onPollVotes(
   );
 }
 
-// --- 모더레이션 (서브컬렉션 sessions/{id}/moderation/rules) ---
-
-function moderationRef(sessionId: string) {
-  return doc(getDb(), "sessions", sessionId, "moderation", MODERATION_DOC_ID);
-}
-
-export async function getModerationRules(sessionId: string): Promise<ModerationRules> {
-  const snap = await getDoc(moderationRef(sessionId));
-  if (!snap.exists()) return { bannedWords: [], blockedNames: [] };
-  const data = snap.data();
-  return {
-    bannedWords: (data.bannedWords as string[]) || [],
-    blockedNames: (data.blockedNames as string[]) || [],
-  };
-}
-
-export function onModerationRules(
-  sessionId: string,
-  callback: (rules: ModerationRules) => void
-) {
-  return onSnapshot(moderationRef(sessionId), (snap) => {
-    if (!snap.exists()) {
-      callback({ bannedWords: [], blockedNames: [] });
-      return;
-    }
-    const data = snap.data();
-    callback({
-      bannedWords: (data.bannedWords as string[]) || [],
-      blockedNames: (data.blockedNames as string[]) || [],
-    });
-  });
-}
-
 // --- 모더레이션: 금칙어 ---
 
 export async function addBannedWord(sessionId: string, word: string) {
   const trimmed = word.trim().toLowerCase();
   if (!trimmed) return;
-  const rules = await getModerationRules(sessionId);
-  if (rules.bannedWords.includes(trimmed)) return;
-  await setDoc(
-    moderationRef(sessionId),
-    { bannedWords: [...rules.bannedWords, trimmed] },
-    { merge: true }
-  );
+  const session = await getSession(sessionId);
+  const current = session?.bannedWords || [];
+  if (current.includes(trimmed)) return;
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    bannedWords: [...current, trimmed],
+  });
 }
 
 export async function removeBannedWord(sessionId: string, word: string) {
-  const rules = await getModerationRules(sessionId);
-  await setDoc(
-    moderationRef(sessionId),
-    { bannedWords: rules.bannedWords.filter((w) => w !== word) },
-    { merge: true }
-  );
+  const session = await getSession(sessionId);
+  const current = session?.bannedWords || [];
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    bannedWords: current.filter((w) => w !== word),
+  });
 }
 
 export function containsBannedWord(text: string, bannedWords: string[] = []): string | null {
@@ -401,22 +347,20 @@ export function containsBannedWord(text: string, bannedWords: string[] = []): st
 export async function blockUserName(sessionId: string, name: string) {
   const trimmed = name.trim();
   if (!trimmed) return;
-  const rules = await getModerationRules(sessionId);
-  if (rules.blockedNames.includes(trimmed)) return;
-  await setDoc(
-    moderationRef(sessionId),
-    { blockedNames: [...rules.blockedNames, trimmed] },
-    { merge: true }
-  );
+  const session = await getSession(sessionId);
+  const current = session?.blockedNames || [];
+  if (current.includes(trimmed)) return;
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    blockedNames: [...current, trimmed],
+  });
 }
 
 export async function unblockUserName(sessionId: string, name: string) {
-  const rules = await getModerationRules(sessionId);
-  await setDoc(
-    moderationRef(sessionId),
-    { blockedNames: rules.blockedNames.filter((n) => n !== name) },
-    { merge: true }
-  );
+  const session = await getSession(sessionId);
+  const current = session?.blockedNames || [];
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    blockedNames: current.filter((n) => n !== name),
+  });
 }
 
 export function isNameBlocked(name: string, blockedNames: string[] = []): boolean {

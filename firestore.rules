@@ -74,15 +74,6 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin()
         || (isAuthed() && resource.data.createdBy == request.auth.uid);
 
-      // ---------- moderation (금칙어/차단 사용자) ----------
-      // sessions/{sessionId}/moderation/rules 문서 하나에 저장.
-      // 세션 참여자·관리자만 read → 미인증 사용자에게 모더레이션 규칙 노출 차단.
-      // 참여자에게 read를 허용하는 이유: 클라이언트에서 입력 시점에 즉시 피드백 UX 필요.
-      match /moderation/{docId} {
-        allow read: if isSessionParticipant(sessionId) || isSessionAdmin(sessionId);
-        allow write: if isSessionAdmin(sessionId);
-      }
-
       // ---------- participants ----------
       // 문서 ID = firebase auth uid
       match /participants/{participantId} {

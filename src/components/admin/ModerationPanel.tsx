@@ -19,19 +19,10 @@ type Tab = "words" | "users" | "announce";
 interface ModerationPanelProps {
   sessionId: string;
   session: Session;
-  /** 상위(board 페이지)가 sessions/{id}/moderation/rules 서브컬렉션에서 구독한 값 */
-  bannedWords: string[];
-  blockedNames: string[];
   onClose: () => void;
 }
 
-export default function ModerationPanel({
-  sessionId,
-  session,
-  bannedWords,
-  blockedNames,
-  onClose,
-}: ModerationPanelProps) {
+export default function ModerationPanel({ sessionId, session, onClose }: ModerationPanelProps) {
   const [tab, setTab] = useState<Tab>("words");
   const [newWord, setNewWord] = useState("");
   const [announcementText, setAnnouncementText] = useState(
@@ -39,6 +30,8 @@ export default function ModerationPanel({
   );
   const [busy, setBusy] = useState(false);
 
+  const bannedWords = session.bannedWords || [];
+  const blockedNames = session.blockedNames || [];
   const announcement = session.announcement;
 
   async function handleAddWord(e: React.FormEvent) {

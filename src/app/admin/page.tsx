@@ -11,6 +11,7 @@ import Input from "@/components/ui/Input";
 import AdminManagementPanel from "@/components/admin/AdminManagementPanel";
 import Modal from "@/components/ui/Modal";
 import {
+  addParticipant,
   createSession,
   deleteSession,
   duplicateSession,
@@ -160,6 +161,29 @@ export default function AdminPage() {
     } catch {
       alert("클립보드 복사에 실패했습니다.");
     }
+  }
+
+  // admin 보드 바로 입장 — 참여자 등록 + 입장 기록을 만든 뒤 이동 (join 화면 생략)
+  async function enterBoard(boardSessionId: string) {
+    if (!firebaseUid) {
+      alert("Firebase 인증 준비 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    const name = session?.user?.name || "관리자";
+    try {
+      await addParticipant(boardSessionId, firebaseUid, {
+        name,
+        isAnonymous: false,
+        isOnline: true,
+      });
+    } catch {
+      // 참여자 등록 실패해도 입장 기록은 남기고 이동 (보드에서 재시도됨)
+    }
+    sessionStorage.setItem(
+      `padolet_${boardSessionId}`,
+      JSON.stringify({ participantId: firebaseUid, name })
+    );
+    router.push(`/board/${boardSessionId}`);
   }
 
   // 세션 복제 — 설정(제목/설명/금칙어/차단 이름)만 복사, 새 코드 발급
@@ -359,8 +383,8 @@ export default function AdminPage() {
                   <Button variant="ghost" onClick={() => showQR(s.code, s.id)}>
                     QR
                   </Button>
-                  <Button variant="ghost" onClick={() => router.push(`/board/${s.id}`)}>
-                    보드
+                  <Button variant="ghost" onClick={() => enterBoard(s.id)}>
+                    보드 입장
                   </Button>
                   <Button variant="ghost" onClick={() => router.push(`/admin/report/${s.id}`)}>
                     레포트
@@ -469,7 +493,10 @@ export default function AdminPage() {
                   {linkCopied ? "복사되었습니다!" : "입장링크 복사하기"}
                 </span>
               </Button>
-              <Button onClick={() => setQrModal(null)}>닫기</Button>
+              <Button onClick={() => enterBoard(qrModal.sessionId)}>보드 입장</Button>
+              <Button variant="ghost" onClick={() => setQrModal(null)}>
+                닫기
+              </Button>
             </div>
           </div>
         )}

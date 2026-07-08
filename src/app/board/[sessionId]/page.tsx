@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth as firebaseAuth, waitForAuthUser } from "@/lib/firebase";
 import Nav from "@/components/layout/Nav";
 import PostGrid, { PostSortMode } from "@/components/board/PostGrid";
 import PostInput from "@/components/board/PostInput";
@@ -21,6 +23,8 @@ import {
   onSession,
   touchParticipant,
   setBoardLocked,
+  addParticipant,
+  isSuperAdmin,
   HEARTBEAT_SECONDS,
   PostColor,
   Session,
@@ -35,7 +39,7 @@ interface ParticipantInfo {
 export default function BoardPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: authSession } = useSession();
+  const { data: authSession, status: authStatus } = useSession();
   const sessionId = params.sessionId as string;
 
   const [session, setSession] = useState<Session | null>(null);
@@ -57,24 +61,83 @@ export default function BoardPage() {
   const [chatSeen, setChatSeen] = useState<number | null>(null);
   // onMessages 콜백에서 현재 탭을 참조하기 위한 ref (stale closure 방지)
   const mobileTabRef = useRef<"board" | "chat">("board");
+  // 세션 소유자 판별은 Firebase Auth uid 기준 (createdBy에 Firebase uid가 저장됨)
+  const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
 
   useEffect(() => {
+    const unsub = onAuthStateChanged(firebaseAuth(), (u) => setFirebaseUid(u?.uid ?? null));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (participant) return; // 이미 입장 처리 완료
+
     const stored = sessionStorage.getItem(`padolet_${sessionId}`);
-    if (!stored) {
-      router.push("/");
+    if (stored) {
+      setParticipant(JSON.parse(stored));
+      getSession(sessionId).then((s) => {
+        if (!s) {
+          router.push("/");
+          return;
+        }
+        setSession(s);
+        setLoading(false);
+      });
       return;
     }
-    setParticipant(JSON.parse(stored));
 
-    getSession(sessionId).then((s) => {
+    // 입장 기록 없이 보드 URL로 직접 접근한 경우 —
+    // 관리자(소유자/super_admin)는 자동 입장, 일반 사용자는 코드가 채워진 join 화면으로.
+    if (authStatus === "loading") return; // NextAuth 세션 복원 대기 후 재실행
+
+    let cancelled = false;
+    (async () => {
+      const s = await getSession(sessionId);
+      if (cancelled) return;
       if (!s) {
         router.push("/");
         return;
       }
-      setSession(s);
-      setLoading(false);
-    });
-  }, [sessionId, router]);
+
+      const email = authSession?.user?.email;
+      const legacyId = (authSession?.user as Record<string, unknown> | undefined)?.id as
+        | string
+        | undefined;
+      // FirebaseAuthSync의 이중 로그인이 끝날 때까지 대기 (미로그인 시 null)
+      const fbUser = authStatus === "authenticated" ? await waitForAuthUser() : null;
+      if (cancelled) return;
+
+      const isOwnerOrSuper =
+        (!!fbUser && s.createdBy === fbUser.uid) ||
+        (!!legacyId && s.createdBy === legacyId) || // 구 보드(NextAuth id) 호환
+        isSuperAdmin(email);
+
+      if (isOwnerOrSuper && fbUser) {
+        const name = authSession?.user?.name || "관리자";
+        try {
+          await addParticipant(sessionId, fbUser.uid, {
+            name,
+            isAnonymous: false,
+            isOnline: true,
+          });
+        } catch {
+          // 참여자 등록이 실패해도 보드 열람은 진행
+        }
+        if (cancelled) return;
+        const info = { participantId: fbUser.uid, name };
+        sessionStorage.setItem(`padolet_${sessionId}`, JSON.stringify(info));
+        setParticipant(info);
+        setSession(s);
+        setLoading(false);
+      } else {
+        router.push(`/join?code=${s.code}`);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, router, participant, authStatus, authSession]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -137,8 +200,13 @@ export default function BoardPage() {
     );
   }
 
-  const adminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
-  const isAdmin = !!adminId && session?.createdBy === adminId;
+  // 관리자 판별 — 신규 보드(createdBy=Firebase uid), 구 보드(createdBy=NextAuth id), super_admin 모두 지원
+  const legacyAdminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
+  const isAdmin =
+    !!session &&
+    ((!!firebaseUid && session.createdBy === firebaseUid) ||
+      (!!legacyAdminId && session.createdBy === legacyAdminId) ||
+      isSuperAdmin(authSession?.user?.email));
   const bannedWords = session?.bannedWords || [];
   const blockedNames = session?.blockedNames || [];
   const unreadChat =

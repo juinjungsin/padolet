@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Poll, onPolls } from "@/lib/firestore";
+import { Poll, onPolls, getQuizLeaderboard, LeaderboardEntry } from "@/lib/firestore";
 import PollCard from "./PollCard";
 import CreatePollModal from "./CreatePollModal";
 import Modal from "@/components/ui/Modal";
-import { RiAddLine, RiBarChart2Line } from "react-icons/ri";
+import { RiAddLine, RiBarChart2Line, RiTrophyLine, RiRefreshLine } from "react-icons/ri";
 
 interface Props {
   open: boolean;
@@ -26,6 +26,10 @@ export default function PollPanel({
 }: Props) {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null);
+  const [leaderboardQuizCount, setLeaderboardQuizCount] = useState(0);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -35,6 +39,29 @@ export default function PollPanel({
 
   const activePolls = polls.filter((p) => p.active);
   const endedPolls = polls.filter((p) => !p.active);
+  // 리더보드 대상: 정답이 설정된 비익명 퀴즈
+  const hasQuiz = polls.some(
+    (p) => p.correctIndex !== null && p.correctIndex !== undefined && !p.anonymous
+  );
+
+  async function loadLeaderboard() {
+    setLoadingLeaderboard(true);
+    try {
+      const { entries, quizCount } = await getQuizLeaderboard(sessionId);
+      setLeaderboard(entries);
+      setLeaderboardQuizCount(quizCount);
+    } catch {
+      setLeaderboard([]);
+      setLeaderboardQuizCount(0);
+    }
+    setLoadingLeaderboard(false);
+  }
+
+  function toggleLeaderboard() {
+    const next = !showLeaderboard;
+    setShowLeaderboard(next);
+    if (next && leaderboard === null) loadLeaderboard();
+  }
 
   return (
     <>
@@ -48,6 +75,19 @@ export default function PollPanel({
             투표 / 퀴즈
           </h2>
           <div className="flex items-center gap-2">
+            {hasQuiz && (
+              <button
+                onClick={toggleLeaderboard}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold border cursor-pointer transition-colors ${
+                  showLeaderboard
+                    ? "bg-graphite text-chalk-card border-graphite"
+                    : "bg-chalk-card text-ink border-silver-mist hover:border-graphite"
+                }`}
+              >
+                <RiTrophyLine size={14} />
+                리더보드
+              </button>
+            )}
             {isAdmin && (
               <button
                 onClick={() => setShowCreate(true)}
@@ -68,6 +108,67 @@ export default function PollPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* 퀴즈 리더보드 */}
+          {showLeaderboard && (
+            <div className="border border-silver-mist rounded-xl bg-chalk-card shadow-[--shadow-card] overflow-hidden">
+              <div className="px-5 py-3 border-b border-silver-mist flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-graphite flex items-center gap-1.5">
+                  <RiTrophyLine size={14} />
+                  퀴즈 리더보드
+                  {leaderboardQuizCount > 0 && (
+                    <span className="text-xs text-slate-text font-normal">
+                      퀴즈 {leaderboardQuizCount}개 기준
+                    </span>
+                  )}
+                </h3>
+                <button
+                  onClick={loadLeaderboard}
+                  disabled={loadingLeaderboard}
+                  className="text-slate-text hover:text-graphite cursor-pointer disabled:opacity-50"
+                  title="새로고침"
+                  aria-label="리더보드 새로고침"
+                >
+                  <RiRefreshLine size={14} className={loadingLeaderboard ? "animate-spin" : ""} />
+                </button>
+              </div>
+              <div className="px-5 py-3">
+                {loadingLeaderboard && leaderboard === null ? (
+                  <p className="text-xs text-ash-text text-center py-4">집계 중...</p>
+                ) : !leaderboard || leaderboard.length === 0 ? (
+                  <p className="text-xs text-ash-text text-center py-4">
+                    아직 집계할 퀴즈 응답이 없습니다.
+                  </p>
+                ) : (
+                  <ol className="space-y-1.5">
+                    {leaderboard.slice(0, 10).map((entry, idx) => (
+                      <li
+                        key={entry.voterId}
+                        className="flex items-center justify-between gap-2 text-sm"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`w-5 text-center font-bold tabular-nums ${
+                              idx === 0 ? "text-ochre" : "text-slate-text"
+                            }`}
+                          >
+                            {idx + 1}
+                          </span>
+                          <span className="text-ink truncate">{entry.name}</span>
+                        </span>
+                        <span className="text-xs text-slate-text tabular-nums shrink-0">
+                          정답 {entry.correct} / 응답 {entry.answered}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                <p className="text-[10px] text-ash-text mt-3">
+                  익명 투표로 진행된 퀴즈는 집계에 포함되지 않습니다.
+                </p>
+              </div>
+            </div>
+          )}
+
           {polls.length === 0 && (
             <p className="text-sm text-ash-text text-center py-12">
               {isAdmin

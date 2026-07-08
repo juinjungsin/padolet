@@ -13,6 +13,7 @@ import Modal from "@/components/ui/Modal";
 import {
   createSession,
   deleteSession,
+  duplicateSession,
   getSessionsByAdmin,
   getAllSessions,
   getRole,
@@ -134,6 +135,21 @@ export default function AdminPage() {
     const joinUrl = `https://${DOMAIN}/join?code=${code}`;
     const qrUrl = await QRCode.toDataURL(joinUrl, { width: 280, margin: 2 });
     setQrModal({ code, qrUrl, sessionId });
+  }
+
+  // 세션 복제 — 설정(제목/설명/금칙어/차단 이름)만 복사, 새 코드 발급
+  async function handleDuplicate(source: Session & { id: string }) {
+    if (!firebaseUid) return;
+    if (!confirm(`"${source.title}" 세션의 설정을 복사해 새 세션을 만드시겠습니까?`)) return;
+    try {
+      const newCode = generateSessionCode();
+      const newSessionId = await duplicateSession(source, newCode, firebaseUid);
+      await reloadSessions();
+      showQR(newCode, newSessionId);
+    } catch (err) {
+      console.error("[admin] 세션 복제 실패", err);
+      alert("세션 복제에 실패했습니다.");
+    }
   }
 
   async function handleConfirmDelete() {
@@ -323,6 +339,9 @@ export default function AdminPage() {
                   </Button>
                   <Button variant="ghost" onClick={() => router.push(`/admin/report/${s.id}`)}>
                     레포트
+                  </Button>
+                  <Button variant="ghost" onClick={() => handleDuplicate(s)}>
+                    복제
                   </Button>
                   {canDelete(s) &&
                     (isEnded ? (

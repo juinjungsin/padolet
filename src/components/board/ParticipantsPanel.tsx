@@ -10,6 +10,7 @@ import {
   onMessages,
   blockUserName,
   unblockUserName,
+  isParticipantOnline,
 } from "@/lib/firestore";
 import Modal from "@/components/ui/Modal";
 import { RiUserForbidLine, RiUserUnfollowLine, RiTeamLine } from "react-icons/ri";
@@ -32,16 +33,20 @@ export default function ParticipantsPanel({
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!open) return;
     const u1 = onParticipants(sessionId, setParticipants);
     const u2 = onPosts(sessionId, setPosts);
     const u3 = onMessages(sessionId, setMessages);
+    // 온라인 판정 기준 시각을 주기적으로 갱신
+    const tick = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => {
       u1();
       u2();
       u3();
+      window.clearInterval(tick);
     };
   }, [open, sessionId]);
 
@@ -63,6 +68,7 @@ export default function ParticipantsPanel({
 
   const anonymousCount = participants.filter((p) => p.isAnonymous).length;
   const namedCount = participants.length - anonymousCount;
+  const onlineCount = participants.filter((p) => isParticipantOnline(p, now)).length;
 
   async function handleBlock(name: string) {
     if (!confirm(`"${name}" 사용자를 차단하시겠습니까?`)) return;
@@ -88,7 +94,12 @@ export default function ParticipantsPanel({
         </button>
       </div>
 
-      <div className="px-6 py-3 border-b border-silver-mist text-xs text-slate-text flex gap-3">
+      <div className="px-6 py-3 border-b border-silver-mist text-xs text-slate-text flex gap-3 flex-wrap">
+        <span className="inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-sage inline-block" />
+          접속 중 {onlineCount}
+        </span>
+        <span>·</span>
         <span>실명 {namedCount}</span>
         <span>·</span>
         <span>익명 {anonymousCount}</span>
@@ -105,6 +116,7 @@ export default function ParticipantsPanel({
         {participants.map((p) => {
           const s = stats.get(p.name) || { postCount: 0, msgCount: 0 };
           const isBlocked = blockedNames.includes(p.name);
+          const online = isParticipantOnline(p, now);
           return (
             <div
               key={p.id}
@@ -113,8 +125,14 @@ export default function ParticipantsPanel({
               }`}
             >
               <div className="min-w-0">
-                <p className="text-sm text-ink truncate">
-                  {p.name}
+                <p className="text-sm text-ink truncate flex items-center">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full inline-block mr-1.5 shrink-0 ${
+                      online ? "bg-sage" : "bg-silver-mist"
+                    }`}
+                    title={online ? "접속 중" : "오프라인"}
+                  />
+                  <span className="truncate">{p.name}</span>
                   {p.isAnonymous && (
                     <span className="ml-2 text-[10px] uppercase tracking-wider bg-vellum text-slate-text px-1.5 py-0.5 rounded-full">
                       익명

@@ -100,10 +100,13 @@ service cloud.firestore {
           && request.resource.data.authorId == request.auth.uid;
 
         // 수정: 본인(5분 이내) 또는 세션 관리자
+        // 리액션: 세션 참여자는 reactions 필드만 수정 가능 (다른 필드 변경 불가)
         allow update: if isSessionAdmin(sessionId)
           || (isAuthed()
               && resource.data.authorId == request.auth.uid
-              && withinEditWindow(resource.data.createdAt));
+              && withinEditWindow(resource.data.createdAt))
+          || (isSessionParticipant(sessionId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
 
         // 삭제: 본인 또는 세션 관리자
         allow delete: if isSessionAdmin(sessionId)

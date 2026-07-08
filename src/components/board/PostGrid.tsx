@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Post, onPosts, deletePost, pinPost, editPost, canEditWindow } from "@/lib/firestore";
+import {
+  Post,
+  PostColor,
+  REACTIONS,
+  onPosts,
+  deletePost,
+  pinPost,
+  editPost,
+  canEditWindow,
+  toggleReaction,
+  reactionTotal,
+  setSpotlightPost,
+} from "@/lib/firestore";
+import { postColorBg } from "@/lib/post-colors";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import Card from "@/components/ui/Card";
 import {
@@ -12,7 +25,11 @@ import {
   RiEditLine,
   RiCheckLine,
   RiCloseLine,
+  RiQuestionLine,
+  RiFocus3Line,
 } from "react-icons/ri";
+
+export type PostSortMode = "default" | "latest" | "reactions";
 
 function renderTextWithLinks(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/gi);
@@ -41,9 +58,26 @@ interface PostGridProps {
   currentUserId?: string;
   /** 검색어 — 빈 값이면 전체 */
   searchQuery?: string;
+  /** 정렬 모드 (기본: 핀 + 등록순) */
+  sortMode?: PostSortMode;
+  /** 질문만 표시 (Q&A 필터) */
+  questionsOnly?: boolean;
+  /** 색상 필터 — undefined면 전체 */
+  colorFilter?: PostColor | null;
+  /** 현재 스포트라이트 중인 포스트 ID (프로젝터 확대 표시) */
+  spotlightPostId?: string | null;
 }
 
-export default function PostGrid({ sessionId, isAdmin, currentUserId, searchQuery = "" }: PostGridProps) {
+export default function PostGrid({
+  sessionId,
+  isAdmin,
+  currentUserId,
+  searchQuery = "",
+  sortMode = "default",
+  questionsOnly = false,
+  colorFilter = null,
+  spotlightPostId = null,
+}: PostGridProps) {
   const [posts, setPosts] = useState<Post[]>([]);
 
   useEffect(() => {
@@ -90,8 +124,24 @@ export default function PostGrid({ sessionId, isAdmin, currentUserId, searchQuer
     setTimeout(() => setCopiedId(null), 1500);
   }
 
+  async function handleToggleReaction(post: Post, key: (typeof REACTIONS)[number]["key"]) {
+    if (!post.id || !currentUserId) return;
+    const already = (post.reactions?.[key] || []).includes(currentUserId);
+    try {
+      await toggleReaction(sessionId, post.id, key, currentUserId, !already);
+    } catch {
+      // 권한/네트워크 오류 시 무시 (다음 스냅샷에서 상태 복원)
+    }
+  }
+
+  async function handleToggleSpotlight(post: Post) {
+    if (!isAdmin || !post.id) return;
+    const next = spotlightPostId === post.id ? null : post.id;
+    await setSpotlightPost(sessionId, next);
+  }
+
   // 검색 필터 (대소문자 무시, 작성자/본문 모두)
-  const filteredPosts = searchQuery.trim()
+  let filteredPosts = searchQuery.trim()
     ? posts.filter((p) => {
         const q = searchQuery.toLowerCase();
         return (
@@ -101,6 +151,29 @@ export default function PostGrid({ sessionId, isAdmin, currentUserId, searchQuer
         );
       })
     : posts;
+
+  // 질문 필터 (Q&A 모드)
+  if (questionsOnly) {
+    filteredPosts = filteredPosts.filter((p) => p.isQuestion);
+  }
+
+  // 색상 필터
+  if (colorFilter) {
+    filteredPosts = filteredPosts.filter((p) => (p.color || "yellow") === colorFilter);
+  }
+
+  // 정렬 — 핀은 항상 최상단, 그 다음 정렬 기준 적용
+  if (sortMode !== "default") {
+    filteredPosts = [...filteredPosts].sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      if (sortMode === "latest") {
+        return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+      }
+      // reactions: 공감 많은 순 → 동률이면 등록순
+      const diff = reactionTotal(b.reactions) - reactionTotal(a.reactions);
+      return diff !== 0 ? diff : a.gridIndex - b.gridIndex;
+    });
+  }
 
   function renderContent(post: Post) {
     switch (post.type) {
@@ -173,18 +246,28 @@ export default function PostGrid({ sessionId, isAdmin, currentUserId, searchQuer
     );
   }
 
+  if (filteredPosts.length === 0 && (questionsOnly || colorFilter)) {
+    return (
+      <div className="p-12 text-center text-sm text-ash-text">
+        {questionsOnly ? "등록된 질문이 없습니다." : "해당 색상의 포스트잇이 없습니다."}
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3">
       {filteredPosts.map((post) => {
         const isOwn = !!currentUserId && post.authorId === currentUserId;
         const editable = isOwn && canEditWindow(post.createdAt);
         const isEditing = editingId === post.id;
+        const isSpotlighted = !!post.id && spotlightPostId === post.id;
         return (
           <Card
             key={post.id}
             className={`p-4 relative group mb-3 break-inside-avoid ${
               post.pinned ? "ring-2 ring-buttercup ring-offset-2 ring-offset-parchment" : ""
-            }`}
+            } ${isSpotlighted ? "ring-2 ring-graphite ring-offset-2 ring-offset-parchment" : ""}`}
+            style={{ backgroundColor: postColorBg(post.color) }}
           >
             {post.pinned && (
               <span className="absolute -top-2 -right-2 inline-flex items-center gap-1 bg-buttercup text-ochre text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-[--shadow-card]">
@@ -193,8 +276,29 @@ export default function PostGrid({ sessionId, isAdmin, currentUserId, searchQuer
               </span>
             )}
             <div className="flex items-center justify-between mb-2 gap-1">
-              <span className="text-xs text-gravel truncate">{post.authorName}</span>
+              <span className="text-xs text-gravel truncate flex items-center gap-1">
+                {post.isQuestion && (
+                  <span
+                    className="inline-flex items-center gap-0.5 bg-graphite text-chalk-card text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                    title="질문"
+                  >
+                    <RiQuestionLine size={9} />Q
+                  </span>
+                )}
+                {post.authorName}
+              </span>
               <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                {isAdmin && post.id && (
+                  <button
+                    onClick={() => handleToggleSpotlight(post)}
+                    title={isSpotlighted ? "스포트라이트 해제" : "프로젝터에 확대 표시"}
+                    className={`cursor-pointer ${
+                      isSpotlighted ? "text-graphite" : "text-slate hover:text-graphite"
+                    }`}
+                  >
+                    <RiFocus3Line size={13} />
+                  </button>
+                )}
                 {isAdmin && post.id && (
                   <button
                     onClick={() => handleTogglePin(post)}
@@ -254,6 +358,32 @@ export default function PostGrid({ sessionId, isAdmin, currentUserId, searchQuer
             ) : (
               renderContent(post)
             )}
+            {/* 리액션 바 */}
+            <div className="flex items-center gap-1 mt-2">
+              {REACTIONS.map((r) => {
+                const users = post.reactions?.[r.key] || [];
+                const mine = !!currentUserId && users.includes(currentUserId);
+                return (
+                  <button
+                    key={r.key}
+                    onClick={() => handleToggleReaction(post, r.key)}
+                    disabled={!currentUserId}
+                    title={mine ? "리액션 취소" : "리액션"}
+                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] border transition-colors cursor-pointer disabled:cursor-default ${
+                      mine
+                        ? "border-graphite bg-vellum font-semibold"
+                        : users.length > 0
+                          ? "border-silver-mist bg-transparent"
+                          : "border-transparent opacity-40 group-hover:opacity-100 hover:border-silver-mist"
+                    }`}
+                  >
+                    <span>{r.emoji}</span>
+                    {users.length > 0 && <span className="tabular-nums">{users.length}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex items-center justify-between mt-2">
               <p className="text-[10px] text-slate">
                 {post.createdAt?.toDate?.()

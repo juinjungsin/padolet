@@ -15,6 +15,8 @@ import {
   onSnapshot,
   serverTimestamp,
   increment,
+  arrayUnion,
+  arrayRemove,
   writeBatch,
   Timestamp,
   QueryDocumentSnapshot,
@@ -86,6 +88,13 @@ export interface Announcement {
 
 export type SessionStatus = "active" | "ended" | "archived";
 
+// 세션 동기화 타이머 — admin이 시작하면 모든 참여자/프로젝터에 동일하게 표시
+export interface SessionTimer {
+  running: boolean;
+  endsAt: Timestamp | null;
+  durationMin: number;
+}
+
 export interface Session {
   id?: string;
   title: string;
@@ -100,6 +109,9 @@ export interface Session {
   announcement?: Announcement | null;
   status?: SessionStatus; // 미설정 = 'active'로 간주
   endedAt?: Timestamp | null;
+  timer?: SessionTimer | null;
+  /** 프로젝터에 확대 표시할 포스트 ID (스포트라이트) */
+  spotlightPostId?: string | null;
 }
 
 export interface Participant {
@@ -109,6 +121,24 @@ export interface Participant {
   joinedAt: Timestamp;
   isOnline: boolean;
   lastSeenAt: Timestamp;
+}
+
+// 포스트잇 색상 태그 (그룹핑용)
+export const POST_COLORS = ["yellow", "blue", "green", "pink"] as const;
+export type PostColor = (typeof POST_COLORS)[number];
+
+// 리액션 종류 — Firestore 필드 키는 영문(key), 표시용은 emoji
+export const REACTIONS = [
+  { key: "up", emoji: "👍" },
+  { key: "heart", emoji: "❤️" },
+  { key: "clap", emoji: "👏" },
+] as const;
+export type ReactionKey = (typeof REACTIONS)[number]["key"];
+export type ReactionMap = Partial<Record<ReactionKey, string[]>>;
+
+export function reactionTotal(reactions: ReactionMap | undefined): number {
+  if (!reactions) return 0;
+  return REACTIONS.reduce((sum, r) => sum + (reactions[r.key]?.length || 0), 0);
 }
 
 export interface Post {
@@ -124,6 +154,12 @@ export interface Post {
   pinned?: boolean;
   pinnedAt?: Timestamp | null;
   editedAt?: Timestamp | null;
+  /** 리액션 — { up: [uid, ...], heart: [...], clap: [...] } */
+  reactions?: ReactionMap;
+  /** 질문 여부 (Q&A 모드) */
+  isQuestion?: boolean;
+  /** 색상 태그 (미설정 = yellow) */
+  color?: PostColor;
 }
 
 export interface Message {
@@ -458,6 +494,27 @@ export async function pinPost(sessionId: string, postId: string, pinned: boolean
   });
 }
 
+/**
+ * 리액션 토글.
+ * - arrayUnion/arrayRemove로 원자적 갱신 → 동시 클릭 race 없음
+ * - Firestore Rules에서 참여자는 reactions 필드만 수정 가능하도록 제한
+ */
+export async function toggleReaction(
+  sessionId: string,
+  postId: string,
+  key: ReactionKey,
+  userId: string,
+  active: boolean
+) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "posts", postId), {
+    [`reactions.${key}`]: active ? arrayUnion(userId) : arrayRemove(userId),
+  });
+}
+
+export async function setPostColor(sessionId: string, postId: string, color: PostColor) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "posts", postId), { color });
+}
+
 export async function editPost(sessionId: string, postId: string, content: string) {
   await updateDoc(doc(getDb(), "sessions", sessionId, "posts", postId), {
     content,
@@ -479,6 +536,116 @@ export function canEditWindow(createdAt: Timestamp | undefined): boolean {
   if (!createdAt?.toDate) return false;
   const ms = Date.now() - createdAt.toDate().getTime();
   return ms < EDIT_WINDOW_MINUTES * 60 * 1000;
+}
+
+// --- 세션 타이머 (동기화) ---
+
+export async function startSessionTimer(sessionId: string, minutes: number) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    timer: {
+      running: true,
+      durationMin: minutes,
+      endsAt: Timestamp.fromMillis(Date.now() + minutes * 60_000),
+    },
+  });
+}
+
+export async function stopSessionTimer(sessionId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), { timer: null });
+}
+
+// --- 스포트라이트 (프로젝터 확대 표시) ---
+
+export async function setSpotlightPost(sessionId: string, postId: string | null) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), { spotlightPostId: postId });
+}
+
+// --- 참여자 presence ---
+
+// heartbeat 주기(초). Firestore 쓰기 비용이 참여자 수에 비례하므로 보수적으로 설정.
+export const HEARTBEAT_SECONDS = 60;
+// 마지막 heartbeat 이후 이 시간(ms) 이내면 온라인으로 간주 (주기의 2.5배)
+export const ONLINE_THRESHOLD_MS = HEARTBEAT_SECONDS * 2500;
+
+export async function touchParticipant(sessionId: string, uid: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId, "participants", uid), {
+    lastSeenAt: serverTimestamp(),
+    isOnline: true,
+  });
+}
+
+export function isParticipantOnline(p: Participant, now: number = Date.now()): boolean {
+  if (!p.lastSeenAt?.toDate) return false;
+  return now - p.lastSeenAt.toDate().getTime() < ONLINE_THRESHOLD_MS;
+}
+
+// --- 퀴즈 리더보드 ---
+
+export interface LeaderboardEntry {
+  voterId: string;
+  name: string;
+  correct: number;
+  answered: number;
+}
+
+/**
+ * 세션 내 모든 퀴즈(correctIndex 설정)의 정답 수를 참여자별로 집계.
+ * 익명 투표(anonymous)는 이름 공개 약속을 지키기 위해 집계에서 제외.
+ */
+export async function getQuizLeaderboard(
+  sessionId: string
+): Promise<{ entries: LeaderboardEntry[]; quizCount: number }> {
+  const pollsSnap = await getDocs(collection(getDb(), "sessions", sessionId, "polls"));
+  const quizzes = pollsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Poll)
+    .filter((p) => p.correctIndex !== null && p.correctIndex !== undefined && !p.anonymous);
+
+  const map = new Map<string, LeaderboardEntry>();
+  for (const quiz of quizzes) {
+    const votesSnap = await getDocs(
+      collection(getDb(), "sessions", sessionId, "polls", quiz.id!, "votes")
+    );
+    votesSnap.docs.forEach((v) => {
+      const vote = v.data() as PollVote;
+      const entry = map.get(vote.voterId) || {
+        voterId: vote.voterId,
+        name: vote.voterName,
+        correct: 0,
+        answered: 0,
+      };
+      entry.answered += 1;
+      entry.name = vote.voterName;
+      if (vote.optionIndex === quiz.correctIndex) entry.correct += 1;
+      map.set(vote.voterId, entry);
+    });
+  }
+
+  const entries = Array.from(map.values()).sort(
+    (a, b) => b.correct - a.correct || a.answered - b.answered
+  );
+  return { entries, quizCount: quizzes.length };
+}
+
+// --- 세션 복제 ---
+
+/**
+ * 기존 세션의 설정(제목/설명/금칙어/차단 이름/로그인 요구)을 복사해 새 세션 생성.
+ * 포스트잇/대화/참여자는 복사하지 않음.
+ */
+export async function duplicateSession(
+  source: Session & { id: string },
+  newCode: string,
+  createdBy: string
+): Promise<string> {
+  return createSession({
+    title: `${source.title} (복사)`,
+    description: source.description || "",
+    code: newCode,
+    createdBy,
+    requireGoogleLogin: source.requireGoogleLogin ?? false,
+    bannedWords: source.bannedWords || [],
+    blockedNames: source.blockedNames || [],
+  });
 }
 
 // --- 세션 라이프사이클 ---

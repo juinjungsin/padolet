@@ -1,10 +1,17 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { addPost, containsBannedWord, isNameBlocked } from "@/lib/firestore";
+import {
+  addPost,
+  containsBannedWord,
+  isNameBlocked,
+  POST_COLORS,
+  PostColor,
+} from "@/lib/firestore";
+import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { uploadFile, validateFiles } from "@/lib/storage";
 import Button from "@/components/ui/Button";
-import { RiImageAddLine } from "react-icons/ri";
+import { RiImageAddLine, RiQuestionLine } from "react-icons/ri";
 
 interface PostInputProps {
   sessionId: string;
@@ -27,6 +34,8 @@ export default function PostInput({
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
+  const [color, setColor] = useState<PostColor>("yellow");
+  const [isQuestion, setIsQuestion] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const blocked = isNameBlocked(authorName, blockedNames);
@@ -57,9 +66,12 @@ export default function PostInput({
       content: content.trim(),
       type,
       gridIndex: currentPostCount,
+      color,
+      isQuestion,
     });
 
     setContent("");
+    setIsQuestion(false);
     setLoading(false);
   }
 
@@ -90,9 +102,12 @@ export default function PostInput({
         fileUrl: result.url,
         fileMeta: { name: result.name, size: result.size, mimeType: result.mimeType },
         gridIndex: currentPostCount,
+        color,
+        isQuestion,
       });
 
       setContent("");
+      setIsQuestion(false);
     } catch {
       // 업로드 실패 시 무시
     }
@@ -121,7 +136,7 @@ export default function PostInput({
             <div className="h-full bg-graphite transition-all" style={{ width: `${uploadProgress}%` }} />
           </div>
         )}
-        <div className="flex items-center gap-3 mt-2">
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
           <Button type="submit" disabled={loading || !content.trim() || blocked}>
             {loading ? "게시 중..." : "게시"}
           </Button>
@@ -134,6 +149,39 @@ export default function PostInput({
           >
             <RiImageAddLine size={16} />
           </button>
+
+          {/* 색상 태그 선택 */}
+          <div className="flex items-center gap-1.5" role="radiogroup" aria-label="포스트잇 색상">
+            {POST_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                title={POST_COLOR_STYLES[c].label}
+                aria-label={`${POST_COLOR_STYLES[c].label} 포스트잇`}
+                className={`w-4 h-4 rounded-full border cursor-pointer transition-transform ${
+                  color === c ? "border-graphite scale-125" : "border-silver-mist"
+                }`}
+                style={{ backgroundColor: POST_COLOR_STYLES[c].dot }}
+              />
+            ))}
+          </div>
+
+          {/* 질문 토글 (Q&A) */}
+          <button
+            type="button"
+            onClick={() => setIsQuestion((v) => !v)}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer ${
+              isQuestion
+                ? "bg-graphite text-chalk-card border-graphite"
+                : "bg-transparent text-ochre border-ochre/30 hover:border-graphite"
+            }`}
+            title="질문으로 등록하면 질문 필터에서 모아볼 수 있습니다"
+          >
+            <RiQuestionLine size={12} />
+            질문
+          </button>
+
           <span className="text-xs text-ash-text ml-auto">{content.length}</span>
         </div>
         {error && <p className="text-xs text-terracotta mt-2">{error}</p>}

@@ -160,7 +160,7 @@ export default function ReportPage() {
 
   if (authStatus === "loading" || (authorized === null && role !== "none")) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
+      <div className="flex-1 flex items-center justify-center bg-transparent text-slate-text">
         권한 확인 중...
       </div>
     );
@@ -168,7 +168,7 @@ export default function ReportPage() {
 
   if (authorized === false) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-parchment p-6">
+      <div className="flex-1 flex items-center justify-center bg-transparent p-6">
         <Card className="max-w-md p-8 text-center">
           <h2
             className="font-display text-2xl text-graphite mb-3"
@@ -187,14 +187,14 @@ export default function ReportPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
+      <div className="flex-1 flex items-center justify-center bg-transparent text-slate-text">
         레포트 생성 중...
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-parchment">
+    <div className="flex flex-col min-h-screen bg-transparent">
       <Nav isAdmin />
       <div className="max-w-[1200px] mx-auto w-full px-6 py-12">
         <div className="flex items-center justify-between mb-8">

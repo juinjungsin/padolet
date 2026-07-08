@@ -130,7 +130,7 @@ export default function BoardPage() {
 
   if (loading || !participant) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
+      <div className="flex-1 flex items-center justify-center bg-transparent text-slate-text">
         로딩 중...
       </div>
     );
@@ -144,7 +144,7 @@ export default function BoardPage() {
     chatTotal !== null && chatSeen !== null ? Math.max(0, chatTotal - chatSeen) : 0;
 
   return (
-    <div className="flex flex-col h-screen bg-parchment relative">
+    <div className="flex flex-col h-screen bg-transparent relative">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
         style={{ backgroundImage: "url('/board-bg.png')", opacity: 0.25 }}

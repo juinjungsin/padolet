@@ -1,47 +1,48 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Colors — Slite parchment palette
+  /* Colors — Wave palette (파도 콘셉트)
+   * 은은한 파란색 계열의 현대적/심플 시스템.
    * Token names preserved for backwards compatibility; values remapped to
-   * the warm-cream Slite system. New names (parchment/vellum/ink/blueprint…)
-   * are added side-by-side so new components can use canonical names.
+   * the cool-blue Wave system. 모든 페이지가 이 토큰을 참조하므로
+   * 여기서만 값을 바꾸면 전체 디자인이 일관되게 전환된다.
    */
 
   /* Surfaces */
-  --color-parchment: #f9efe4;     /* primary page ground */
-  --color-vellum: #fdf9f4;        /* secondary surface, alt section */
-  --color-chalk-card: #fdfdfd;    /* highest surface, cards */
-  --color-linen: #f0e4d6;         /* muted banner / sticky-note ground */
-  --color-blossom: #fae9f4;       /* category badge bg */
-  --color-buttercup: #fbf4d8;     /* category badge bg */
+  --color-parchment: #eff5fa;     /* primary page ground — 옅은 하늘빛 */
+  --color-vellum: #f7fafd;        /* secondary surface, alt section */
+  --color-chalk-card: #fdfeff;    /* highest surface, cards */
+  --color-linen: #dfebf5;         /* muted banner / chip ground */
+  --color-blossom: #eaeffb;       /* category badge bg */
+  --color-buttercup: #ddebf8;     /* highlight ground — 잔잔한 물빛 */
 
   /* Text & ink */
-  --color-ink: #3f434a;           /* primary body text */
-  --color-graphite: #2d2f34;      /* filled-button surface, headings */
-  --color-graphite-dark: #1a1c20; /* hover for filled buttons */
-  --color-slate-text: #656565;    /* secondary text */
-  --color-ash-text: #9da3af;      /* tertiary text */
-  --color-silver-mist: #d9dde6;   /* borders, dividers */
+  --color-ink: #2a3b4d;           /* primary body text — 깊은 바다 잉크 */
+  --color-graphite: #1c3d5a;      /* filled-button surface, headings — 심해 네이비 */
+  --color-graphite-dark: #142e45; /* hover for filled buttons */
+  --color-slate-text: #5a6e82;    /* secondary text — 청회색 */
+  --color-ash-text: #90a4b7;      /* tertiary text */
+  --color-silver-mist: #d3e0ec;   /* borders, dividers — 물안개 */
 
   /* Accent */
   --color-blueprint: #2e77e5;     /* links */
-  --color-dusk-blue: #446aa7;     /* inline link */
-  --color-sage: #547358;          /* compliance text */
-  --color-mauve: #9d4d77;         /* customization text */
-  --color-ochre: #7f6c1f;         /* security text */
-  --color-terracotta: #f67748;    /* danger / error */
+  --color-dusk-blue: #4a73b0;     /* inline link */
+  --color-sage: #4e7a62;          /* success / correct */
+  --color-mauve: #8d5b8f;         /* customization text */
+  --color-ochre: #2f5f8f;         /* highlight 위 텍스트 — 짙은 물빛 */
+  --color-terracotta: #e85b4a;    /* danger / error */
 
-  /* Legacy token bridge — keep prior class names alive, point at Slite values */
-  --color-eggshell: #f9efe4;      /* was #fdfcfc */
-  --color-powder: #fdf9f4;        /* was #f5f3f1 */
-  --color-chalk: #d9dde6;         /* was #e5e5e5 — now silver-mist (border) */
-  --color-fog: #9da3af;           /* was #b1b0b0 */
-  --color-gravel: #656565;        /* was #777169 */
-  --color-slate: #9da3af;         /* was #a59f97 */
-  --color-cinder: #1a1c20;        /* was #575349 — hover state */
-  --color-obsidian: #2d2f34;      /* was #000000 — graphite */
-  --color-signal-blue: #2e77e5;   /* was #0447ff */
-  --color-ember: #f67748;         /* was #ff4704 — terracotta */
+  /* Legacy token bridge — keep prior class names alive, point at Wave values */
+  --color-eggshell: #eff5fa;
+  --color-powder: #f7fafd;
+  --color-chalk: #d3e0ec;         /* silver-mist (border) */
+  --color-fog: #90a4b7;
+  --color-gravel: #5a6e82;
+  --color-slate: #90a4b7;
+  --color-cinder: #142e45;        /* hover state */
+  --color-obsidian: #1c3d5a;      /* graphite */
+  --color-signal-blue: #2e77e5;
+  --color-ember: #e85b4a;         /* terracotta */
 
   /* Typography — substitutes for Garnett / UniversalSans per DESIGN_site.md */
   --font-display: 'Fraunces', 'DM Serif Display', Georgia, serif;
@@ -76,24 +77,32 @@
   --radius-pill: 42px;   /* primary CTA */
   --radius-full: 9999px; /* badges / outlined CTA */
 
-  /* Shadows — Slite three-layer whisper */
-  --shadow-subtle: rgba(0, 0, 0, 0.04) 0px 0px 0px 1px inset;
-  --shadow-card: rgba(0, 0, 0, 0.01) 0px 4px 12px 0px,
-                 rgba(0, 0, 0, 0.05) 0px 2px 6px 0px,
-                 rgba(0, 0, 0, 0.10) 0px 1px 3px 0px;
-  --shadow-button: rgba(0, 0, 0, 0.01) 0px 4px 12px 0px,
-                   rgba(0, 0, 0, 0.05) 0px 2px 6px 0px,
-                   rgba(0, 0, 0, 0.10) 0px 1px 3px 0px;
+  /* Shadows — 파란빛이 스민 3겹 그림자 */
+  --shadow-subtle: rgba(28, 61, 90, 0.05) 0px 0px 0px 1px inset;
+  --shadow-card: rgba(28, 61, 90, 0.02) 0px 4px 12px 0px,
+                 rgba(28, 61, 90, 0.06) 0px 2px 6px 0px,
+                 rgba(28, 61, 90, 0.10) 0px 1px 3px 0px;
+  --shadow-button: rgba(28, 61, 90, 0.02) 0px 4px 12px 0px,
+                   rgba(28, 61, 90, 0.06) 0px 2px 6px 0px,
+                   rgba(28, 61, 90, 0.10) 0px 1px 3px 0px;
 }
 
 body {
+  /* 위에서 아래로 수심이 깊어지는 은은한 그라데이션 */
   background-color: var(--color-parchment);
+  background-image: linear-gradient(180deg, #f3f8fc 0%, #e9f1f8 100%);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-feature-settings: "ss01", "ss02";
   /* iOS Safari 안전 영역 보정 */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+}
+
+::selection {
+  background-color: var(--color-linen);
+  color: var(--color-graphite);
 }
 
 /* 모바일에서 채팅/포스트잇 입력창이 가상 키보드에 가려지지 않도록 하단 안전영역 보정 */

@@ -113,7 +113,7 @@ export default function ProjectorPage() {
   const totalVotes = currentVotes.length;
 
   return (
-    <div className="min-h-screen bg-parchment text-graphite p-8">
+    <div className="min-h-screen bg-transparent text-graphite p-8">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">

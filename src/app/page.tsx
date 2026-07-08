@@ -6,6 +6,7 @@ import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card from "@/components/ui/Card";
+import WaveDecor, { WaveUnderline } from "@/components/ui/WaveDecor";
 import { isValidCode } from "@/lib/session-code";
 
 export default function Home() {
@@ -24,24 +25,31 @@ export default function Home() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4 py-16">
-      <div className="text-center mb-10">
-        <Image src="/icon.png" alt="padolet" width={108} height={108} className="mx-auto mb-5 rounded-2xl" />
-        <span className="inline-block bg-linen text-ink text-xs font-semibold px-3 py-1 rounded-full mb-5 tracking-wide">
+    <div className="flex-1 relative flex flex-col items-center justify-center px-4 py-16 overflow-hidden">
+      <div className="relative z-10 text-center mb-10">
+        <Image
+          src="/icon.png"
+          alt="padolet"
+          width={108}
+          height={108}
+          className="mx-auto mb-6 rounded-3xl shadow-[--shadow-card]"
+        />
+        <span className="inline-block bg-linen text-ochre text-xs font-semibold px-3.5 py-1.5 rounded-full mb-6 tracking-wide">
           교육용 실시간 보드
         </span>
         <h1
-          className="font-display text-5xl md:text-6xl text-graphite mb-3"
-          style={{ fontWeight: 700, letterSpacing: "-1.2px", lineHeight: 1.08 }}
+          className="font-display text-6xl md:text-7xl text-graphite mb-4"
+          style={{ fontWeight: 700, letterSpacing: "-1.6px", lineHeight: 1.05 }}
         >
           padolet
         </h1>
-        <p className="text-base text-slate-text max-w-md">
+        <WaveUnderline className="mx-auto mb-4" />
+        <p className="text-base md:text-lg text-slate-text max-w-md">
           파도치듯 주고받는 커뮤니케이션 보드
         </p>
       </div>
 
-      <Card className="w-full max-w-sm p-8">
+      <Card className="relative z-10 w-full max-w-sm p-8 rounded-2xl border-silver-mist/70 backdrop-blur-sm bg-chalk-card/90">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="text-xs text-ash-text uppercase tracking-wider font-semibold">입장코드</label>
           <Input
@@ -60,11 +68,13 @@ export default function Home() {
         </form>
       </Card>
 
-      <div className="mt-6">
+      <div className="relative z-10 mt-6">
         <Button variant="outlined" onClick={() => router.push("/admin")}>
           관리자 로그인
         </Button>
       </div>
+
+      <WaveDecor />
     </div>
   );
 }

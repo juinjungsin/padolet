@@ -115,7 +115,7 @@ function TimerContent() {
   const strokeOffset = circumference * (1 - progress);
 
   return (
-    <div className="flex-1 flex flex-col bg-parchment">
+    <div className="flex-1 flex flex-col bg-transparent">
       {/* 가벼운 헤더 */}
       <div className="max-w-[1200px] mx-auto w-full px-4 md:px-8 h-[72px] flex items-center">
         <Link
@@ -271,7 +271,7 @@ export default function TimerPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
+        <div className="flex-1 flex items-center justify-center bg-transparent text-slate-text">
           로딩 중...
         </div>
       }

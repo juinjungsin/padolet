@@ -199,7 +199,7 @@ export default function AdminPage() {
   // 로딩 중 (NextAuth 세션 or 역할 or Firebase Auth 준비 대기)
   if (status === "loading" || (session && role === null) || (session && role !== "none" && !firebaseUid)) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">
+      <div className="flex-1 flex items-center justify-center bg-transparent text-slate-text">
         로딩 중...
       </div>
     );
@@ -208,7 +208,7 @@ export default function AdminPage() {
   // 미인증 — Google 로그인 화면
   if (!session) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4">
+      <div className="flex-1 flex flex-col items-center justify-center bg-transparent px-4">
         <div className="text-center mb-8">
           <h1
             className="font-display text-5xl text-graphite mb-3"
@@ -231,7 +231,7 @@ export default function AdminPage() {
   // 인증되었으나 권한 없음
   if (role === "none") {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4">
+      <div className="flex-1 flex flex-col items-center justify-center bg-transparent px-4">
         <Card className="w-full max-w-md p-8 text-center">
           <h2
             className="font-display text-2xl text-graphite mb-3"
@@ -258,7 +258,7 @@ export default function AdminPage() {
 
   // 인증된 Admin 대시보드
   return (
-    <div className="flex flex-col min-h-screen bg-parchment">
+    <div className="flex flex-col min-h-screen bg-transparent">
       <Nav isAdmin />
       <div className="max-w-[1200px] mx-auto w-full px-4 md:px-6 py-8 md:py-12">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

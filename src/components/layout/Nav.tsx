@@ -32,7 +32,7 @@ export default function Nav({
   onOpenPolls,
 }: NavProps) {
   return (
-    <nav className="h-[72px] bg-parchment flex items-center px-4 md:px-8 max-w-[1200px] mx-auto w-full">
+    <nav className="h-[72px] bg-transparent border-b border-silver-mist/60 flex items-center px-4 md:px-8 max-w-[1200px] mx-auto w-full">
       <Link
         href="/"
         className="flex items-center gap-2 font-display text-xl tracking-tight text-graphite"

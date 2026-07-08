@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card from "@/components/ui/Card";
+import WaveDecor from "@/components/ui/WaveDecor";
 import { getSessionByCode } from "@/lib/firestore";
 import { addParticipant } from "@/lib/firestore";
 import { signInAsAnonymousUser } from "@/lib/firebase";
@@ -94,9 +95,9 @@ function JoinForm() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-parchment px-4">
+    <div className="flex-1 relative flex flex-col items-center justify-center px-4 overflow-hidden">
       {step === "code" && (
-        <Card className="w-full max-w-sm p-8">
+        <Card className="relative z-10 w-full max-w-sm p-8 rounded-2xl border-silver-mist/70 backdrop-blur-sm bg-chalk-card/90">
           <h2
             className="font-display text-3xl text-graphite text-center mb-6"
             style={{ fontWeight: 700, letterSpacing: "-0.8px" }}
@@ -124,7 +125,7 @@ function JoinForm() {
       )}
 
       {step === "name" && (
-        <Card className="w-full max-w-sm p-8">
+        <Card className="relative z-10 w-full max-w-sm p-8 rounded-2xl border-silver-mist/70 backdrop-blur-sm bg-chalk-card/90">
           <div className="text-center mb-6">
             <p className="text-xs text-gravel mb-1">{code}</p>
             <h2
@@ -162,13 +163,15 @@ function JoinForm() {
           </form>
         </Card>
       )}
+
+      <WaveDecor />
     </div>
   );
 }
 
 export default function JoinPage() {
   return (
-    <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-parchment text-slate-text">로딩 중...</div>}>
+    <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-transparent text-slate-text">로딩 중...</div>}>
       <JoinForm />
     </Suspense>
   );

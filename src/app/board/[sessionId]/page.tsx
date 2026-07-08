@@ -300,6 +300,8 @@ export default function BoardPage() {
             sessionId={sessionId}
             isAdmin={isAdmin}
             currentUserId={participant.participantId}
+            currentUserName={participant.name}
+            bannedWords={bannedWords}
             searchQuery={searchQuery}
             sortMode={sortMode}
             questionsOnly={questionsOnly}
@@ -338,6 +340,8 @@ export default function BoardPage() {
               sessionId={sessionId}
               isAdmin={isAdmin}
               currentUserId={participant.participantId}
+              currentUserName={participant.name}
+              bannedWords={bannedWords}
               spotlightPostId={session?.spotlightPostId}
               locked={lockedForMe}
             />

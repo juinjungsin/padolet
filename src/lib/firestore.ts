@@ -162,6 +162,17 @@ export interface Post {
   isQuestion?: boolean;
   /** 색상 태그 (미설정 = yellow) */
   color?: PostColor;
+  /** 댓글 수 (비정규화 — 접힌 상태에서도 표시하기 위함) */
+  commentCount?: number;
+}
+
+// 포스트잇 댓글 — posts/{postId}/comments 서브컬렉션
+export interface Comment {
+  id?: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  createdAt: Timestamp;
 }
 
 export interface Message {
@@ -521,6 +532,52 @@ export async function editPost(sessionId: string, postId: string, content: strin
   await updateDoc(doc(getDb(), "sessions", sessionId, "posts", postId), {
     content,
     editedAt: Timestamp.now(),
+  });
+}
+
+// --- 포스트잇 댓글 ---
+
+/**
+ * 댓글 작성.
+ * - 댓글 문서 생성 + 상위 포스트의 commentCount 증가를 writeBatch로 원자 처리.
+ * - Firestore Rules에서 참여자는 commentCount만 변경 가능하도록 제한.
+ */
+export async function addComment(
+  sessionId: string,
+  postId: string,
+  data: Omit<Comment, "id" | "createdAt">
+) {
+  const db = getDb();
+  const commentRef = doc(collection(db, "sessions", sessionId, "posts", postId, "comments"));
+  const postRef = doc(db, "sessions", sessionId, "posts", postId);
+  const batch = writeBatch(db);
+  batch.set(commentRef, { ...data, createdAt: serverTimestamp() });
+  batch.update(postRef, { commentCount: increment(1) });
+  await batch.commit();
+  return commentRef.id;
+}
+
+export async function deleteComment(sessionId: string, postId: string, commentId: string) {
+  const db = getDb();
+  const commentRef = doc(db, "sessions", sessionId, "posts", postId, "comments", commentId);
+  const postRef = doc(db, "sessions", sessionId, "posts", postId);
+  const batch = writeBatch(db);
+  batch.delete(commentRef);
+  batch.update(postRef, { commentCount: increment(-1) });
+  await batch.commit();
+}
+
+export function onComments(
+  sessionId: string,
+  postId: string,
+  callback: (comments: Comment[]) => void
+) {
+  const q = query(
+    collection(getDb(), "sessions", sessionId, "posts", postId, "comments"),
+    orderBy("createdAt", "asc")
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Comment));
   });
 }
 

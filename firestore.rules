@@ -108,6 +108,7 @@ service cloud.firestore {
 
         // 수정: 본인(5분 이내) 또는 세션 관리자 — 잠금 중에는 관리자만
         // 리액션: 세션 참여자는 reactions 필드만 수정 가능 (다른 필드 변경 불가)
+        // 댓글: 세션 참여자는 commentCount만 수정 가능 (댓글 작성/삭제 시 증감)
         allow update: if isSessionAdmin(sessionId)
           || (isAuthed()
               && resource.data.authorId == request.auth.uid
@@ -115,6 +116,9 @@ service cloud.firestore {
               && !isBoardLocked(sessionId))
           || (isSessionParticipant(sessionId)
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+              && !isBoardLocked(sessionId))
+          || (isSessionParticipant(sessionId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
               && !isBoardLocked(sessionId));
 
         // 삭제: 본인(잠금 중 제외) 또는 세션 관리자
@@ -122,6 +126,23 @@ service cloud.firestore {
           || (isAuthed()
               && resource.data.authorId == request.auth.uid
               && !isBoardLocked(sessionId));
+
+        // ---------- comments (포스트잇 댓글) ----------
+        match /comments/{commentId} {
+          allow read: if true;
+
+          // 세션 참여자만 작성 (보드 잠금 중에는 관리자만). authorId는 반드시 본인 uid
+          allow create: if isAuthed()
+            && request.resource.data.authorId == request.auth.uid
+            && (isSessionAdmin(sessionId)
+                || (isSessionParticipant(sessionId) && !isBoardLocked(sessionId)));
+
+          // 삭제: 본인(잠금 중 제외) 또는 세션 관리자
+          allow delete: if isSessionAdmin(sessionId)
+            || (isAuthed()
+                && resource.data.authorId == request.auth.uid
+                && !isBoardLocked(sessionId));
+        }
       }
 
       // ---------- messages (대화) ----------

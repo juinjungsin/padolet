@@ -17,6 +17,7 @@ import {
 import { postColorBg } from "@/lib/post-colors";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import Card from "@/components/ui/Card";
+import PostComments from "@/components/board/PostComments";
 import {
   RiDeleteBinLine,
   RiFileCopyLine,
@@ -27,6 +28,7 @@ import {
   RiCloseLine,
   RiQuestionLine,
   RiFocus3Line,
+  RiChat1Line,
 } from "react-icons/ri";
 
 export type PostSortMode = "default" | "latest" | "reactions";
@@ -56,6 +58,10 @@ interface PostGridProps {
   isAdmin: boolean;
   /** 현재 사용자(참여자) ID — 본인 작성물 편집 권한 판정용 */
   currentUserId?: string;
+  /** 현재 사용자 표시 이름 — 댓글 작성자명 */
+  currentUserName?: string;
+  /** 금칙어 — 댓글 작성 시 필터링 */
+  bannedWords?: string[];
   /** 검색어 — 빈 값이면 전체 */
   searchQuery?: string;
   /** 정렬 모드 (기본: 핀 + 등록순) */
@@ -74,6 +80,8 @@ export default function PostGrid({
   sessionId,
   isAdmin,
   currentUserId,
+  currentUserName,
+  bannedWords = [],
   searchQuery = "",
   sortMode = "default",
   questionsOnly = false,
@@ -91,6 +99,16 @@ export default function PostGrid({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [openComments, setOpenComments] = useState<Set<string>>(new Set());
+
+  function toggleComments(postId: string) {
+    setOpenComments((prev) => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
+  }
 
   async function handleDelete(postId: string) {
     if (!postId) return;
@@ -402,14 +420,43 @@ export default function PostGrid({
                   : ""}
                 {post.editedAt && <span className="ml-1 italic">· 수정됨</span>}
               </p>
-              <button
-                onClick={() => handleCopy(post.content, post.id!)}
-                className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
-              >
-                <RiFileCopyLine size={11} />
-                {copiedId === post.id ? "Copied!" : "Copy"}
-              </button>
+              <div className="flex items-center gap-2">
+                {post.id && (
+                  <button
+                    onClick={() => toggleComments(post.id!)}
+                    title="댓글"
+                    className={`flex items-center gap-0.5 text-[10px] cursor-pointer transition-colors ${
+                      openComments.has(post.id) ? "text-obsidian" : "text-slate hover:text-obsidian"
+                    }`}
+                  >
+                    <RiChat1Line size={11} />
+                    {post.commentCount ? (
+                      <span className="tabular-nums">{post.commentCount}</span>
+                    ) : (
+                      "댓글"
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={() => handleCopy(post.content, post.id!)}
+                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+                >
+                  <RiFileCopyLine size={11} />
+                  {copiedId === post.id ? "Copied!" : "Copy"}
+                </button>
+              </div>
             </div>
+            {post.id && openComments.has(post.id) && (
+              <PostComments
+                sessionId={sessionId}
+                postId={post.id}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                isAdmin={isAdmin}
+                locked={locked}
+                bannedWords={bannedWords}
+              />
+            )}
           </Card>
         );
       })}

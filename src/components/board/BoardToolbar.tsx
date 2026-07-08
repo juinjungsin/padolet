@@ -45,7 +45,7 @@ export default function BoardToolbar({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="포스트잇 / 작성자 검색"
-          className="w-full pl-8 pr-8 py-2 text-sm text-ink bg-vellum border border-silver-mist rounded-full outline-none focus:border-graphite"
+          className="w-full pl-[34px] pr-[32px] py-2 text-sm text-ink bg-vellum border border-silver-mist rounded-full outline-none focus:border-graphite"
         />
         {searchQuery && (
           <button

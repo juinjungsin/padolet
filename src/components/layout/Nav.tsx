@@ -10,6 +10,8 @@ import {
   RiSettings3Line,
   RiSlideshowLine,
   RiBarChart2Line,
+  RiLockFill,
+  RiLockUnlockLine,
 } from "react-icons/ri";
 
 interface NavProps {
@@ -20,6 +22,9 @@ interface NavProps {
   isAdmin?: boolean;
   onOpenModeration?: () => void;
   onOpenPolls?: () => void;
+  /** 보드 잠금 상태 (admin 토글 버튼 표시용) */
+  isLocked?: boolean;
+  onToggleLock?: () => void;
 }
 
 export default function Nav({
@@ -30,6 +35,8 @@ export default function Nav({
   isAdmin,
   onOpenModeration,
   onOpenPolls,
+  isLocked,
+  onToggleLock,
 }: NavProps) {
   return (
     <nav className="h-[72px] bg-transparent border-b border-silver-mist/60 flex items-center px-4 md:px-8 max-w-[1200px] mx-auto w-full">
@@ -111,6 +118,21 @@ export default function Nav({
           >
             <RiShieldUserLine size={14} />
             <span className="hidden sm:inline">모더레이션</span>
+          </button>
+        )}
+
+        {isAdmin && onToggleLock && (
+          <button
+            onClick={onToggleLock}
+            title={isLocked ? "보드 잠금 해제" : "보드 잠금 (참여자 열람만 가능)"}
+            className={`inline-flex items-center gap-1 text-xs transition-colors cursor-pointer ${
+              isLocked
+                ? "text-terracotta font-semibold hover:text-graphite"
+                : "text-slate-text hover:text-graphite"
+            }`}
+          >
+            {isLocked ? <RiLockFill size={14} /> : <RiLockUnlockLine size={14} />}
+            <span className="hidden sm:inline">{isLocked ? "잠금해제" : "잠금"}</span>
           </button>
         )}
 

@@ -62,6 +62,8 @@ interface ChatPanelProps {
   isAdmin?: boolean;
   bannedWords?: string[];
   blockedNames?: string[];
+  /** 보드 잠금 (참여자 기준) — true면 입력/전송 불가 */
+  locked?: boolean;
 }
 
 export default function ChatPanel({
@@ -71,6 +73,7 @@ export default function ChatPanel({
   isAdmin = false,
   bannedWords = [],
   blockedNames = [],
+  locked = false,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -128,7 +131,7 @@ export default function ChatPanel({
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || sending) return;
+    if (!input.trim() || sending || locked) return;
 
     if (blocked) {
       setSendError("관리자에 의해 차단된 사용자입니다.");
@@ -201,6 +204,7 @@ export default function ChatPanel({
   }
 
   async function uploadAndSendFile(file: File) {
+    if (locked) return;
     // 모든 업로드 경로(파일선택/드래그앤드롭/붙여넣기)에 공통으로 검증 적용
     const { valid, errors } = validateFiles([file]);
     if (errors.length > 0 || valid.length === 0) {
@@ -290,6 +294,7 @@ export default function ChatPanel({
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
+    if (locked) return;
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
 
@@ -458,6 +463,7 @@ export default function ChatPanel({
               {msg.authorId === authorId &&
                 msg.type === "text" &&
                 !msg.hidden &&
+                !locked &&
                 canEditWindow(msg.createdAt) &&
                 editingId !== msg.id && (
                   <button
@@ -529,7 +535,13 @@ export default function ChatPanel({
         </div>
       )}
 
-      {blocked ? (
+      {locked ? (
+        <div className="p-3 border-t border-silver-mist bg-buttercup text-center">
+          <p className="text-xs text-ochre font-semibold">
+            보드가 잠금 상태입니다. 열람만 가능합니다.
+          </p>
+        </div>
+      ) : blocked ? (
         <div className="p-3 border-t border-silver-mist bg-vellum text-center">
           <p className="text-xs text-terracotta font-semibold">
             관리자에 의해 채팅이 차단되었습니다.

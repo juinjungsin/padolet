@@ -11,7 +11,7 @@ import {
 import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { uploadFile, validateFiles } from "@/lib/storage";
 import Button from "@/components/ui/Button";
-import { RiImageAddLine, RiQuestionLine } from "react-icons/ri";
+import { RiAttachmentLine, RiQuestionLine } from "react-icons/ri";
 
 interface PostInputProps {
   sessionId: string;
@@ -20,6 +20,8 @@ interface PostInputProps {
   currentPostCount: number;
   bannedWords?: string[];
   blockedNames?: string[];
+  /** 보드 잠금 (참여자 기준) — true면 작성 불가 */
+  locked?: boolean;
 }
 
 export default function PostInput({
@@ -29,6 +31,7 @@ export default function PostInput({
   currentPostCount,
   bannedWords = [],
   blockedNames = [],
+  locked = false,
 }: PostInputProps) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,11 +42,16 @@ export default function PostInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const blocked = isNameBlocked(authorName, blockedNames);
+  const disabled = blocked || locked;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!content.trim()) return;
 
+    if (locked) {
+      setError("보드가 잠금 상태입니다. 열람만 가능합니다.");
+      return;
+    }
     if (blocked) {
       setError("관리자에 의해 차단된 사용자입니다.");
       return;
@@ -75,14 +83,17 @@ export default function PostInput({
     setLoading(false);
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // 이미지 + 일반 파일 업로드 — 대화창과 동일한 검증(위험 형식 차단, 50MB 제한) 적용
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0 || disabled) return;
 
-    // SVG/HTML 등 위험한 형식 차단
-    const { valid, errors } = validateFiles([file]);
-    if (errors.length > 0 || valid.length === 0) {
-      setError(errors[0] || "허용되지 않은 파일입니다.");
+    // SVG/HTML/실행파일 등 위험한 형식 차단
+    const { valid, errors } = validateFiles(Array.from(files));
+    if (errors.length > 0) {
+      setError(errors[0]);
+    }
+    if (valid.length === 0) {
       e.target.value = "";
       return;
     }
@@ -91,25 +102,29 @@ export default function PostInput({
     setUploadProgress(0);
 
     try {
-      const { promise } = uploadFile(sessionId, file, (p) => setUploadProgress(p.progress));
-      const result = await promise;
+      for (let i = 0; i < valid.length; i++) {
+        const file = valid[i];
+        const { promise } = uploadFile(sessionId, file, (p) => setUploadProgress(p.progress));
+        const result = await promise;
 
-      await addPost(sessionId, {
-        authorId,
-        authorName,
-        content: content.trim(),
-        type: "image",
-        fileUrl: result.url,
-        fileMeta: { name: result.name, size: result.size, mimeType: result.mimeType },
-        gridIndex: currentPostCount,
-        color,
-        isQuestion,
-      });
+        await addPost(sessionId, {
+          authorId,
+          authorName,
+          // 입력창 텍스트는 첫 파일에만 붙임 (여러 장 업로드 시 중복 방지)
+          content: i === 0 ? content.trim() : "",
+          type: file.type.startsWith("image/") ? "image" : "file",
+          fileUrl: result.url,
+          fileMeta: { name: result.name, size: result.size, mimeType: result.mimeType },
+          gridIndex: currentPostCount + i,
+          color,
+          isQuestion,
+        });
+      }
 
       setContent("");
       setIsQuestion(false);
     } catch {
-      // 업로드 실패 시 무시
+      setError("파일 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
 
     setLoading(false);
@@ -126,9 +141,15 @@ export default function PostInput({
             setContent(e.target.value);
             if (error) setError("");
           }}
-          placeholder={blocked ? "관리자에 의해 차단된 사용자입니다" : "포스트잇에 내용을 작성하세요"}
+          placeholder={
+            locked
+              ? "보드가 잠금 상태입니다 — 열람만 가능합니다"
+              : blocked
+                ? "관리자에 의해 차단된 사용자입니다"
+                : "포스트잇에 내용을 작성하세요"
+          }
           rows={3}
-          disabled={blocked}
+          disabled={disabled}
           className="w-full resize-none bg-transparent text-sm text-ink placeholder:text-ochre/50 outline-none disabled:opacity-60"
         />
         {uploadProgress > 0 && (
@@ -137,17 +158,18 @@ export default function PostInput({
           </div>
         )}
         <div className="flex items-center gap-3 mt-2 flex-wrap">
-          <Button type="submit" disabled={loading || !content.trim() || blocked}>
+          <Button type="submit" disabled={loading || !content.trim() || disabled}>
             {loading ? "게시 중..." : "게시"}
           </Button>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={loading || blocked}
+            disabled={loading || disabled}
+            title="파일 첨부 (이미지/문서/오디오/비디오, 최대 50MB)"
             className="text-ochre hover:text-graphite cursor-pointer disabled:opacity-50"
           >
-            <RiImageAddLine size={16} />
+            <RiAttachmentLine size={16} />
           </button>
 
           {/* 색상 태그 선택 */}

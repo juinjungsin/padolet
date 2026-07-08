@@ -112,6 +112,8 @@ export interface Session {
   timer?: SessionTimer | null;
   /** 프로젝터에 확대 표시할 포스트 ID (스포트라이트) */
   spotlightPostId?: string | null;
+  /** 보드 잠금 — true면 참여자는 열람만 가능 (작성/대화/리액션 차단) */
+  locked?: boolean;
 }
 
 export interface Participant {
@@ -558,6 +560,18 @@ export async function stopSessionTimer(sessionId: string) {
 
 export async function setSpotlightPost(sessionId: string, postId: string | null) {
   await updateDoc(doc(getDb(), "sessions", sessionId), { spotlightPostId: postId });
+}
+
+// --- 보드 잠금 ---
+
+/**
+ * 보드 전체 잠금 토글 (admin 전용).
+ * 잠금 중에는 참여자의 포스트잇 작성/편집/삭제, 대화, 리액션이 차단되어
+ * 공지 등 현재 보드 내용을 그대로 유지·열람시킬 수 있다.
+ * Firestore Rules에서도 동일 조건을 강제하므로 UI 우회 불가.
+ */
+export async function setBoardLocked(sessionId: string, locked: boolean) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), { locked });
 }
 
 // --- 참여자 presence ---

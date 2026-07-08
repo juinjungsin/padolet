@@ -20,11 +20,12 @@ import {
   onPosts,
   onSession,
   touchParticipant,
+  setBoardLocked,
   HEARTBEAT_SECONDS,
   PostColor,
   Session,
 } from "@/lib/firestore";
-import { RiChat3Line, RiStickyNoteLine } from "react-icons/ri";
+import { RiChat3Line, RiStickyNoteLine, RiLockFill } from "react-icons/ri";
 
 interface ParticipantInfo {
   participantId: string;
@@ -142,6 +143,26 @@ export default function BoardPage() {
   const blockedNames = session?.blockedNames || [];
   const unreadChat =
     chatTotal !== null && chatSeen !== null ? Math.max(0, chatTotal - chatSeen) : 0;
+  const boardLocked = !!session?.locked;
+  // 참여자 기준 잠금 (admin은 잠금 중에도 모든 기능 사용 가능)
+  const lockedForMe = boardLocked && !isAdmin;
+
+  async function handleToggleLock() {
+    if (!isAdmin) return;
+    const next = !boardLocked;
+    if (
+      next &&
+      !confirm(
+        "보드를 잠금 상태로 변경하시겠습니까?\n참여자는 열람만 가능하며 포스트잇 작성/대화/리액션이 차단됩니다."
+      )
+    )
+      return;
+    try {
+      await setBoardLocked(sessionId, next);
+    } catch {
+      alert("잠금 상태 변경에 실패했습니다.");
+    }
+  }
 
   return (
     <div className="flex flex-col h-screen bg-transparent relative">
@@ -158,7 +179,26 @@ export default function BoardPage() {
         isAdmin={isAdmin}
         onOpenModeration={isAdmin ? () => setShowModeration(true) : undefined}
         onOpenPolls={() => setShowPolls(true)}
+        isLocked={boardLocked}
+        onToggleLock={isAdmin ? handleToggleLock : undefined}
       />
+
+      {/* 보드 잠금 배너 */}
+      {boardLocked && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-silver-mist bg-buttercup text-ochre text-sm">
+          <RiLockFill size={14} />
+          <span className="font-semibold">보드가 잠금 상태입니다.</span>
+          <span className="hidden sm:inline">현재 내용은 열람만 가능합니다.</span>
+          {isAdmin && (
+            <button
+              onClick={handleToggleLock}
+              className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border border-ochre/40 hover:border-ochre cursor-pointer transition-colors"
+            >
+              잠금해제
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 세션 동기화 타이머 배너 (모든 참여자 공통) */}
       <SessionTimerBanner timer={session?.timer} isAdmin={isAdmin} sessionId={sessionId} />
@@ -173,6 +213,7 @@ export default function BoardPage() {
             currentPostCount={postCount}
             bannedWords={bannedWords}
             blockedNames={blockedNames}
+            locked={lockedForMe}
           />
           <BoardToolbar
             searchQuery={searchQuery}
@@ -196,6 +237,7 @@ export default function BoardPage() {
             questionsOnly={questionsOnly}
             colorFilter={colorFilter}
             spotlightPostId={session?.spotlightPostId}
+            locked={lockedForMe}
           />
         </div>
         <div style={{ width: "25%" }}>
@@ -206,6 +248,7 @@ export default function BoardPage() {
             isAdmin={isAdmin}
             bannedWords={bannedWords}
             blockedNames={blockedNames}
+            locked={lockedForMe}
           />
         </div>
       </div>
@@ -221,12 +264,14 @@ export default function BoardPage() {
               currentPostCount={postCount}
               bannedWords={bannedWords}
               blockedNames={blockedNames}
+              locked={lockedForMe}
             />
             <PostGrid
               sessionId={sessionId}
               isAdmin={isAdmin}
               currentUserId={participant.participantId}
               spotlightPostId={session?.spotlightPostId}
+              locked={lockedForMe}
             />
           </div>
         ) : (
@@ -238,6 +283,7 @@ export default function BoardPage() {
               isAdmin={isAdmin}
               bannedWords={bannedWords}
               blockedNames={blockedNames}
+              locked={lockedForMe}
             />
           </div>
         )}

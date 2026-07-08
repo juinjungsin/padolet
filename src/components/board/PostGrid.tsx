@@ -66,6 +66,8 @@ interface PostGridProps {
   colorFilter?: PostColor | null;
   /** 현재 스포트라이트 중인 포스트 ID (프로젝터 확대 표시) */
   spotlightPostId?: string | null;
+  /** 보드 잠금 (참여자 기준) — true면 리액션/편집/삭제 불가 */
+  locked?: boolean;
 }
 
 export default function PostGrid({
@@ -77,6 +79,7 @@ export default function PostGrid({
   questionsOnly = false,
   colorFilter = null,
   spotlightPostId = null,
+  locked = false,
 }: PostGridProps) {
   const [posts, setPosts] = useState<Post[]>([]);
 
@@ -125,7 +128,7 @@ export default function PostGrid({
   }
 
   async function handleToggleReaction(post: Post, key: (typeof REACTIONS)[number]["key"]) {
-    if (!post.id || !currentUserId) return;
+    if (!post.id || !currentUserId || locked) return;
     const already = (post.reactions?.[key] || []).includes(currentUserId);
     try {
       await toggleReaction(sessionId, post.id, key, currentUserId, !already);
@@ -216,14 +219,22 @@ export default function PostGrid({
           return <span className="text-sm text-ash-text">📎 {post.fileMeta?.name || "파일"} (차단됨)</span>;
         }
         return (
-          <a
-            href={post.fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-signal-blue hover:underline"
-          >
-            📎 {post.fileMeta?.name || "파일"}
-          </a>
+          <div>
+            <a
+              href={post.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-signal-blue hover:underline break-all"
+            >
+              📎 {post.fileMeta?.name || "파일"}
+              {typeof post.fileMeta?.size === "number" && post.fileMeta.size > 0 && (
+                <span className="text-xs text-ash-text ml-1">
+                  ({(post.fileMeta.size / 1024 / 1024).toFixed(1)}MB)
+                </span>
+              )}
+            </a>
+            {post.content && <p className="text-sm text-obsidian mt-1">{post.content}</p>}
+          </div>
         );
       default:
         return <p className="text-sm text-obsidian whitespace-pre-wrap">{renderTextWithLinks(post.content)}</p>;
@@ -258,7 +269,7 @@ export default function PostGrid({
     <div className="p-4 columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3">
       {filteredPosts.map((post) => {
         const isOwn = !!currentUserId && post.authorId === currentUserId;
-        const editable = isOwn && canEditWindow(post.createdAt);
+        const editable = isOwn && !locked && canEditWindow(post.createdAt);
         const isEditing = editingId === post.id;
         const isSpotlighted = !!post.id && spotlightPostId === post.id;
         return (
@@ -317,7 +328,7 @@ export default function PostGrid({
                     <RiEditLine size={13} />
                   </button>
                 )}
-                {(isAdmin || isOwn) && post.id && (
+                {(isAdmin || (isOwn && !locked)) && post.id && (
                   <button
                     onClick={() => handleDelete(post.id!)}
                     title="삭제"
@@ -367,8 +378,8 @@ export default function PostGrid({
                   <button
                     key={r.key}
                     onClick={() => handleToggleReaction(post, r.key)}
-                    disabled={!currentUserId}
-                    title={mine ? "리액션 취소" : "리액션"}
+                    disabled={!currentUserId || locked}
+                    title={locked ? "보드 잠금 중" : mine ? "리액션 취소" : "리액션"}
                     className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] border transition-colors cursor-pointer disabled:cursor-default ${
                       mine
                         ? "border-graphite bg-vellum font-semibold"

@@ -14,6 +14,7 @@ import {
   createSession,
   deleteSession,
   duplicateSession,
+  getSessionByCode,
   getSessionsByAdmin,
   getAllSessions,
   getRole,
@@ -28,6 +29,7 @@ import {
 import { auth as firebaseAuth } from "@/lib/firebase";
 import { generateSessionCode } from "@/lib/session-code";
 import QRCode from "qrcode";
+import { RiLinkM, RiCheckLine } from "react-icons/ri";
 
 const DOMAIN = "padolet.vercel.app";
 
@@ -40,6 +42,7 @@ export default function AdminPage() {
   const [description, setDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [qrModal, setQrModal] = useState<{ code: string; qrUrl: string; sessionId: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<(Session & { id: string }) | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
@@ -109,7 +112,7 @@ export default function AdminPage() {
     setCreating(true);
 
     try {
-      const code = generateSessionCode();
+      const code = await generateUniqueCode();
       const sessionId = await createSession({
         title: title.trim(),
         description: description.trim(),
@@ -131,10 +134,32 @@ export default function AdminPage() {
     }
   }
 
+  // 4자리 코드는 충돌 가능성이 있어 생성 시 중복 검사 (최대 10회 재시도)
+  async function generateUniqueCode(): Promise<string> {
+    for (let i = 0; i < 10; i++) {
+      const code = generateSessionCode();
+      const existing = await getSessionByCode(code);
+      if (!existing) return code;
+    }
+    throw new Error("입장코드 생성 충돌 — 다시 시도해주세요.");
+  }
+
   async function showQR(code: string, sessionId: string) {
     const joinUrl = `https://${DOMAIN}/join?code=${code}`;
     const qrUrl = await QRCode.toDataURL(joinUrl, { width: 280, margin: 2 });
+    setLinkCopied(false);
     setQrModal({ code, qrUrl, sessionId });
+  }
+
+  async function handleCopyJoinLink() {
+    if (!qrModal) return;
+    try {
+      await navigator.clipboard.writeText(`https://${DOMAIN}/join?code=${qrModal.code}`);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      alert("클립보드 복사에 실패했습니다.");
+    }
   }
 
   // 세션 복제 — 설정(제목/설명/금칙어/차단 이름)만 복사, 새 코드 발급
@@ -142,7 +167,7 @@ export default function AdminPage() {
     if (!firebaseUid) return;
     if (!confirm(`"${source.title}" 세션의 설정을 복사해 새 세션을 만드시겠습니까?`)) return;
     try {
-      const newCode = generateSessionCode();
+      const newCode = await generateUniqueCode();
       const newSessionId = await duplicateSession(source, newCode, firebaseUid);
       await reloadSessions();
       showQR(newCode, newSessionId);
@@ -428,8 +453,8 @@ export default function AdminPage() {
         {qrModal && (
           <div className="p-10 text-center">
             <h2
-              className="font-display text-5xl text-graphite mb-6 font-mono"
-              style={{ fontWeight: 700, letterSpacing: "0.2em", lineHeight: 1.08 }}
+              className="font-display text-8xl text-graphite mb-6 font-mono"
+              style={{ fontWeight: 700, letterSpacing: "0.15em", lineHeight: 1.08 }}
             >
               {qrModal.code}
             </h2>
@@ -437,7 +462,15 @@ export default function AdminPage() {
             <p className="text-sm text-slate-text mb-6">
               QR 스캔 또는 코드를 입력하여 참여
             </p>
-            <Button onClick={() => setQrModal(null)}>닫기</Button>
+            <div className="flex flex-col items-center gap-3">
+              <Button variant="outlined" onClick={handleCopyJoinLink}>
+                <span className="inline-flex items-center gap-1.5">
+                  {linkCopied ? <RiCheckLine size={16} /> : <RiLinkM size={16} />}
+                  {linkCopied ? "복사되었습니다!" : "입장링크 복사하기"}
+                </span>
+              </Button>
+              <Button onClick={() => setQrModal(null)}>닫기</Button>
+            </div>
           </div>
         )}
       </Modal>

@@ -17,7 +17,7 @@ export default function Home() {
     e.preventDefault();
     const upperCode = code.trim().toUpperCase();
     if (!isValidCode(upperCode)) {
-      setError("6자리 입장코드를 정확히 입력하세요.");
+      setError("입장코드 4자리를 정확히 입력하세요.");
       return;
     }
     router.push(`/join?code=${upperCode}`);
@@ -46,7 +46,7 @@ export default function Home() {
           <label className="text-xs text-ash-text uppercase tracking-wider font-semibold">입장코드</label>
           <Input
             variant="contained"
-            placeholder="6자리 코드 입력"
+            placeholder="4자리 코드 입력"
             value={code}
             onChange={(e) => {
               setCode(e.target.value.toUpperCase());

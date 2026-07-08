@@ -106,7 +106,7 @@ function JoinForm() {
           <form onSubmit={handleCodeSubmit} className="flex flex-col gap-4">
             <Input
               variant="contained"
-              placeholder="6자리 코드"
+              placeholder="4자리 코드"
               value={code}
               onChange={(e) => {
                 setCode(e.target.value.toUpperCase());

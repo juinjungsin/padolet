@@ -184,3 +184,31 @@ Phase 6 — Firestore Rules 재설계 및 인증 이중화 (2026-07-08)
     2) npx firebase-tools deploy --only firestore:rules --project jblet-3e6c3
     3) 기존 세션 데이터의 createdBy 값 = NextAuth sub → 새 규칙으로는 소유자로 인식 안 됨
        (개발 초기라 무시 가능. 기존 데이터 유지 원하면 마이그레이션 스크립트 필요)
+
+
+Phase 8 — 텍스트 파일 한글 깨짐 수정 + HTML 업로드 허용 (2026-10-19)
+
+  원인
+    - 한글 깨짐: 업로드 시 contentType을 file.type("text/plain")으로만 지정 → charset 없이 서빙
+      → 브라우저가 인코딩을 추측하다 깨짐 (특히 메모장/엑셀 ANSI = CP949 파일)
+      Firebase 정책 문제 아님. 저장 경로의 한글 파일명도 "_"로 치환돼 다운로드 파일명이 깨짐
+    - HTML 차단: 앱(storage.ts) + 운영 Storage Rules 이중 차단
+      a21ff82의 storage.rules가 7/8 운영 배포된 뒤 코드만 되돌려져(b8a2c9d) 운영에 그대로 남아 있었음
+      → "text/plain; charset=utf-8"도 거부되는 상태
+
+  변경
+    src/lib/storage.ts       인코딩 판별(UTF-8/CP949/UTF-16 BOM) 후 contentType에 charset 명시
+                             (원본 바이트 유지), contentDisposition에 원본 파일명(RFC 5987),
+                             .md 등 file.type 빈 값은 확장자로 MIME 보정, text/html 허용
+    storage.rules            운영 규칙을 저장소로 편입 + 텍스트 계열 charset 허용, text/html 차단 해제
+    firebase.json            storage 섹션 추가
+
+  배포
+    - Storage Rules: npx firebase-tools deploy --only storage --project jblet-3e6c3 (규칙 먼저)
+    - Vercel: main push → 자동 배포 (cfafe98, /claude-level 페이지 포함)
+    - 운영 검증: CP949 txt·UTF-8 html 업로드/서빙 헤더 확인, SVG·JS·비로그인 거부 확인, 프로브 파일 삭제
+
+  참고
+    - 기존에 업로드된 텍스트 파일은 charset 없이 저장돼 있어 재업로드해야 정상 표시
+    - Storage Rules 변경 시 반드시 규칙 배포 → 앱 배포 순서 (반대면 업로드 403)
+    - 커스텀 도메인 juinjungsin.site 접속 불가 상태 확인 (padolet.vercel.app 정상) — DNS 점검 필요

@@ -88,7 +88,7 @@ export default function PostInput({
     const files = e.target.files;
     if (!files || files.length === 0 || disabled) return;
 
-    // SVG/HTML/실행파일 등 위험한 형식 차단
+    // SVG/스크립트/실행파일 등 위험한 형식 차단
     const { valid, errors } = validateFiles(Array.from(files));
     if (errors.length > 0) {
       setError(errors[0]);

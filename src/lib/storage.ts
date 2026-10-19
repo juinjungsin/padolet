@@ -1,4 +1,4 @@
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, UploadMetadata } from "firebase/storage";
 import { getApps } from "firebase/app";
 
 function getStorageInstance() {
@@ -19,22 +19,75 @@ export interface UploadProgress {
   status: "uploading" | "done" | "error";
 }
 
+// Windows는 .md 등 일부 확장자에 file.type을 비워 보내므로 확장자로 보정
+const MIME_BY_EXTENSION: Record<string, string> = {
+  txt: "text/plain",
+  md: "text/markdown",
+  markdown: "text/markdown",
+  csv: "text/csv",
+  html: "text/html",
+  htm: "text/html",
+};
+
+function resolveMime(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXTENSION[ext] ?? "";
+}
+
+/**
+ * 텍스트 파일의 실제 인코딩 판별.
+ * Content-Type에 charset이 없으면 브라우저가 인코딩을 추측하다 한글이 깨진다.
+ * 원본 바이트는 그대로 두고 charset만 명시한다 (CP949로 저장된 메모장·엑셀 파일 포함).
+ */
+async function detectCharset(file: File): Promise<string | null> {
+  const head = new Uint8Array(await file.slice(0, 1024 * 1024).arrayBuffer());
+  if (head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf) return "utf-8";
+  if (head[0] === 0xff && head[1] === 0xfe) return "utf-16le";
+  if (head[0] === 0xfe && head[1] === 0xff) return "utf-16be";
+  for (const charset of ["utf-8", "euc-kr"]) {
+    try {
+      // stream: 1MB 경계에서 잘린 멀티바이트 문자를 오류로 보지 않음
+      new TextDecoder(charset, { fatal: true }).decode(head, { stream: true });
+      return charset;
+    } catch {
+      // 다음 후보 인코딩 시도
+    }
+  }
+  return null;
+}
+
+// 다운로드 시 저장 경로의 "_" 치환 이름 대신 원래 한글 파일명이 쓰이도록 (RFC 5987)
+function contentDispositionFor(name: string): string {
+  const encoded = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+  return `inline; filename*=UTF-8''${encoded}`;
+}
+
+async function buildMetadata(file: File): Promise<UploadMetadata> {
+  const mime = resolveMime(file);
+  const charset = mime.startsWith("text/") ? await detectCharset(file) : null;
+  return {
+    contentType: charset ? `${mime}; charset=${charset}` : mime,
+    contentDisposition: contentDispositionFor(file.name),
+  };
+}
+
 export function uploadFile(
   sessionId: string,
   file: File,
   onProgress?: (p: UploadProgress) => void
-): { promise: Promise<UploadResult>; task: UploadTask } {
+): { promise: Promise<UploadResult> } {
   const storage = getStorageInstance();
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const path = `padolet/${sessionId}/${timestamp}_${safeName}`;
   const storageRef = ref(storage, path);
 
-  const task = uploadBytesResumable(storageRef, file, {
-    contentType: file.type,
-  });
-
-  const promise = new Promise<UploadResult>((resolve, reject) => {
+  const promise = buildMetadata(file).then((metadata) => new Promise<UploadResult>((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file, metadata);
     task.on(
       "state_changed",
       (snapshot) => {
@@ -52,13 +105,13 @@ export function uploadFile(
           url,
           name: file.name,
           size: file.size,
-          mimeType: file.type,
+          mimeType: resolveMime(file),
         });
       }
     );
-  });
+  }));
 
-  return { promise, task };
+  return { promise };
 }
 
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -89,12 +142,13 @@ export const ALLOWED_MIME_EXACT = new Set([
   "text/plain",
   "text/csv",
   "text/markdown",
+  // HTML은 firebasestorage.googleapis.com 출처에서 열리므로 padolet 로그인·데이터에 접근 불가
+  "text/html",
 ]);
 
 // SVG는 임의 스크립트를 실행할 수 있어 차단 (이미지로 보이지만 위험)
 const BLOCKED_MIME_EXACT = new Set([
   "image/svg+xml",
-  "text/html",
   "application/xhtml+xml",
   "application/javascript",
   "text/javascript",
@@ -123,8 +177,9 @@ export function validateFiles(files: File[]): { valid: File[]; errors: string[] 
       errors.push(`${f.name} — 50MB 초과 (${(f.size / 1024 / 1024).toFixed(1)}MB)`);
       return false;
     }
-    if (!isAllowedMime(f.type)) {
-      errors.push(`${f.name} — 허용되지 않은 형식 (${f.type || "알 수 없음"})`);
+    const mime = resolveMime(f);
+    if (!isAllowedMime(mime)) {
+      errors.push(`${f.name} — 허용되지 않은 형식 (${mime || "알 수 없음"})`);
       return false;
     }
     return true;

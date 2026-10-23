@@ -104,7 +104,7 @@ export default function Nav({
           className="shrink-0 flex items-center gap-2 font-brand text-xl tracking-tight text-graphite rounded-md"
           style={{ fontWeight: 700 }}
         >
-          <Image src="/icon.png" alt="" width={28} height={28} className="rounded-md" />
+          <Image src="/logo.png" alt="" width={28} height={28} className="rounded-md" />
           <span className={sessionCode ? "hidden lg:inline" : ""}>padolet</span>
         </Link>
 

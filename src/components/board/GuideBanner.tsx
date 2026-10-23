@@ -42,6 +42,8 @@ interface GuideBannerProps {
   participantCount: number;
   onAskQuestion: () => void;
   onEdit: () => void;
+  /** 제출함이 켜진 실습 — 제출 탭 열기 */
+  onOpenSubmissions?: () => void;
 }
 
 const actionButton =
@@ -60,6 +62,7 @@ export default function GuideBanner({
   participantCount,
   onAskQuestion,
   onEdit,
+  onOpenSubmissions,
 }: GuideBannerProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -197,6 +200,11 @@ export default function GuideBanner({
             </ul>
           )}
 
+          {isAdmin && module.submissionEnabled && onOpenSubmissions && (
+            <button onClick={onOpenSubmissions} className="text-sm font-semibold text-blueprint hover:underline cursor-pointer">
+              제출 현황 보기
+            </button>
+          )}
           {(due || module.submitUrl) && (
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink">
               {due && (
@@ -268,6 +276,15 @@ export default function GuideBanner({
             <RiQuestionLine size={16} aria-hidden />
             질문하기
           </button>
+          {module.submissionEnabled && onOpenSubmissions && (
+            <button
+              onClick={onOpenSubmissions}
+              className={`${actionButton} bg-chalk-card text-blueprint border-blueprint/40 hover:border-blueprint`}
+            >
+              <RiUploadCloud2Line size={16} aria-hidden />
+              결과 제출하기
+            </button>
+          )}
           {myHelp?.moduleId === moduleId && myHelp.status !== "cancelled" && (
             <p role="status" className="basis-full text-sm text-warn">
               {myHelp.status === "open"

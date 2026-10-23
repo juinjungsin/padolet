@@ -387,3 +387,35 @@ Phase 13 — 교육 대시보드 개선 운영 배포 (2026-10-23)
   운영 확인 권장 (운영 데이터 쓰기가 필요해 자동 점검에서 제외)
     - 테스트 세션 생성 → 휴대폰으로 첫 시도 입장 → 관리자 목록 누적 입장 증가 확인
     - 실습 안내 지정 → 교육생 화면 상단 고정, 실습 완료·도움 필요, 질문 상태 변경, 보고서 PDF/MD
+
+
+Phase 14 — P2-01 실습별 제출함 (2026-10-23, 미배포)
+
+  정책 결정 (사용자)
+    - 공개: 그 실습에 제출한 교육생끼리 최신 제출물 열람 (제출 전 베끼기 방지). 이력·피드백은 본인·강사만
+      (다른 교육생 카드에는 피드백 여부도 표시하지 않음)
+    - 파일: 링크를 아는 사람 열람 (보드 첨부와 같은 방식 — Storage 규칙 변경 없음)
+    - 익명 식별: 브라우저 기준 유지, 제출 화면에 같은 기기·브라우저 안내
+
+  데이터 (추가 방식)
+    modules.submissionEnabled                       실습별 앱 안 제출함 켜기
+    sessions/{id}/submissions/{mid}__{uid}          최신 제출 — name, version(1부터 +1), text, files[{name,size,mimeType,url}],
+                                                    submittedAt, feedbackStatus(none|reviewed), feedbackVersion, feedbackAt
+    .../submissions/{id}/versions/{n}               제출 이력 (교육생 수정 불가) + 강사 피드백(feedback, feedbackAt, feedbackBy)
+
+  보안 규칙 (배포 필요)
+    - 제출: 본인 문서, 제출함 켜진 실습, version = 이전+1, 같은 배치에 이력 문서 존재(existsAfter), 피드백 상태 위조 금지, 파일 5개 이하
+    - 열람: 강사·본인·같은 실습 제출자(목록 조회 포함), 이력은 본인·강사
+    - 피드백: 강사만 (이력 feedback 필드, 최신 문서 feedbackStatus·feedbackVersion·feedbackAt만)
+
+  변경
+    SubmissionsView (신규)  제출 탭 — 교육생: 상태(미제출/제출/재제출, 피드백 대기/완료)·제출/다시 제출·성공 확인·
+                            이력·제출 후 동료 제출물 / 강사: 실습별 현황(집계 대상 명시)·교육생별 보기·피드백
+                            업로드가 하나라도 실패하면 제출 기록을 남기지 않음 (실패를 제출로 세지 않음)
+    GuideBanner             '결과 제출하기'(교육생) / '제출 현황 보기'(강사)
+    ModuleEditorModal       '앱 안 제출함 열기'
+    board                   제출 탭은 제출함이 켜진 실습이 있을 때만, 제출 탭에서는 포스트잇 입력·필터 숨김
+    report                  실습 제출 섹션 (명단 제외 시 '교육생 n', 링크 제외 옵션 적용)
+    deleteSession           submissions·versions 삭제
+
+  검증: 단위 73, 규칙 33, E2E 55 + 제출 7 통과 / tsc 통과 / ESLint 신규 문제 없음

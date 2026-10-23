@@ -256,6 +256,56 @@ service cloud.firestore {
         allow delete: if isSessionAdmin(sessionId);
       }
 
+      // ---------- submissions (실습별 제출함, P2-01) ----------
+      // 문서 ID = {moduleId}__{uid} (최신 제출), versions/{n} = 제출 이력
+      // 열람: 강사·본인, 그리고 같은 실습에 제출한 교육생 (제출 전 베끼기 방지 — 2026-10 정책 결정)
+      function submissionOpen(moduleId) {
+        return get(/databases/$(database)/documents/sessions/$(sessionId)/modules/$(moduleId)).data.get('submissionEnabled', false) == true;
+      }
+
+      match /submissions/{submissionId} {
+        allow read: if isSessionAdmin(sessionId)
+          || isOwnMemberDoc(submissionId)
+          || (isSessionParticipant(sessionId)
+              && exists(/databases/$(database)/documents/sessions/$(sessionId)/submissions/$(resource.data.moduleId + '__' + request.auth.uid)));
+
+        // 교육생 제출·다시 제출 — 버전은 1씩만 올라가고, 같은 배치에서 이력 문서를 함께 만든다
+        allow create, update: if isOwnMemberDoc(submissionId)
+          && isSessionParticipant(sessionId)
+          && submissionId == request.resource.data.moduleId + '__' + request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && submissionOpen(request.resource.data.moduleId)
+          && request.resource.data.feedbackStatus == 'none'
+          && request.resource.data.version == (resource == null ? 1 : resource.data.version + 1)
+          && request.resource.data.files.size() <= 5
+          && existsAfter(/databases/$(database)/documents/sessions/$(sessionId)/submissions/$(submissionId)/versions/$(string(request.resource.data.version)))
+          && (resource == null
+              ? request.resource.data.keys().hasOnly(['moduleId', 'uid', 'name', 'version', 'text', 'files', 'submittedAt', 'feedbackStatus'])
+              : request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'version', 'text', 'files', 'submittedAt', 'feedbackStatus']));
+
+        // 강사 피드백 표시
+        allow update: if isSessionAdmin(sessionId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedbackStatus', 'feedbackVersion', 'feedbackAt']);
+
+        allow delete: if isSessionAdmin(sessionId);
+
+        match /versions/{version} {
+          // 이력과 피드백은 본인·강사만
+          allow read: if isSessionAdmin(sessionId) || isOwnMemberDoc(submissionId);
+
+          allow create: if isOwnMemberDoc(submissionId)
+            && isSessionParticipant(sessionId)
+            && version == string(request.resource.data.version)
+            && request.resource.data.keys().hasOnly(['version', 'text', 'files', 'submittedAt'])
+            && getAfter(/databases/$(database)/documents/sessions/$(sessionId)/submissions/$(submissionId)).data.version == request.resource.data.version;
+
+          // 이력은 교육생이 고칠 수 없다. 강사는 피드백만 기록
+          allow update: if isSessionAdmin(sessionId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedback', 'feedbackAt', 'feedbackBy']);
+          allow delete: if isSessionAdmin(sessionId);
+        }
+      }
+
       // ---------- polls (투표/퀴즈) ----------
       match /polls/{pollId} {
         allow read: if true;

@@ -5,6 +5,8 @@ import { formatBytes, formatDate, formatDateTime, formatTime } from "./format";
 import { METRICS } from "./metrics";
 import { getPostKind, POST_KIND_LABEL } from "./post-kind";
 import { meTooCount, QUESTION_STATUS_LABEL, questionStatus } from "./question";
+import type { Module } from "./practice";
+import { isReviewed, Submission, summarizeSubmissions } from "./submission";
 
 export interface ReportOptions {
   /** 참여자 명단 포함 (외부 공유 시 끌 수 있음) */
@@ -25,7 +27,29 @@ export interface ReportData {
   /** postId → 댓글 */
   comments: Record<string, Comment[]>;
   messages: Message[];
+  /** 실습 안내·제출 (P2-01) — 없으면 제출 섹션 생략 */
+  modules?: Module[];
+  submissions?: Submission[];
   generatedAt?: Date;
+}
+
+/** 보고서 제출 섹션 — 제출함이 켜진 실습별 제출 목록 (명단 제외 시 이름을 '교육생 n'으로) */
+export function submissionSections(data: ReportData, includeNames: boolean) {
+  const learners = data.participants.filter((p) => p.id !== data.session.createdBy);
+  const learnerIds = learners.map((p) => p.id!).filter(Boolean);
+  return (data.modules ?? [])
+    .filter((m) => m.id && m.submissionEnabled)
+    .map((m) => {
+      const subs = (data.submissions ?? [])
+        .filter((s) => s.moduleId === m.id)
+        .sort((a, b) => (a.submittedAt?.toMillis?.() ?? 0) - (b.submittedAt?.toMillis?.() ?? 0));
+      return {
+        module: m,
+        summary: summarizeSubmissions(subs, m.id!, learnerIds),
+        learnerCount: learners.length,
+        rows: subs.map((s, i) => ({ sub: s, label: includeNames ? s.name : `교육생 ${i + 1}`, reviewed: isReviewed(s) })),
+      };
+    });
 }
 
 export interface AttachmentInfo {
@@ -117,6 +141,31 @@ export function buildReportMarkdown(data: ReportData, options: ReportOptions = D
       out.push("");
     }
   });
+
+  const sections = submissionSections(data, options.includeParticipants);
+  if (sections.length) {
+    out.push("## 실습 제출", "");
+    sections.forEach(({ module, summary, learnerCount, rows }) => {
+      out.push(
+        `### ${module.title} — ${module.practiceTitle}`,
+        "",
+        `제출 ${summary.submitted}명 / 교육생 ${learnerCount}명 · 재제출 ${summary.resubmitted} · 미제출 ${summary.notSubmitted} · 피드백 완료 ${summary.reviewed}`,
+        ""
+      );
+      rows.forEach(({ sub, label, reviewed }) => {
+        out.push(
+          `- ${label} · ${sub.version}번째 제출 · ${formatDateTime(sub.submittedAt) || "시각 미확인"} · ${reviewed ? "피드백 완료" : "피드백 대기"}`
+        );
+        if (sub.text?.trim()) out.push(indent(sub.text.trim()));
+        (sub.files ?? []).forEach((f) =>
+          out.push(
+            `  - 파일: ${options.includeLinks ? `[${escapeLinkText(f.name)}](${escapeUrl(f.url)})` : f.name} · ${formatBytes(f.size)}`
+          )
+        );
+      });
+      out.push("");
+    });
+  }
 
   out.push(`## 대화 (${messages.length}건)`, "");
   messages.forEach((m) => {

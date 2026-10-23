@@ -14,10 +14,12 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db as getDb } from "./firebase";
 import type { Message, QuestionStatus } from "./firestore";
 import { HelpRequest, memberDocId, Module, Progress, ProgressStatus } from "./practice";
+import type { Submission, SubmissionFile, SubmissionVersion } from "./submission";
 
 const sessionDoc = (sid: string) => doc(getDb(), "sessions", sid);
 
@@ -127,6 +129,104 @@ export async function resolveHelp(sid: string, helpId: string, adminUid: string)
     resolvedAt: serverTimestamp(),
     resolvedBy: adminUid,
   });
+}
+
+// ---------- 제출함 (submissions, P2-01) ----------
+
+export function onMySubmission(sid: string, moduleId: string, uid: string, cb: (s: Submission | null) => void) {
+  return onSnapshot(
+    doc(getDb(), "sessions", sid, "submissions", memberDocId(moduleId, uid)),
+    (snap) => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as Submission) : null),
+    () => cb(null)
+  );
+}
+
+/** 강사, 또는 그 실습에 제출한 교육생만 읽을 수 있다 (그 외에는 빈 목록) */
+export function onModuleSubmissions(sid: string, moduleId: string, cb: (list: Submission[]) => void) {
+  return onSnapshot(
+    query(collection(getDb(), "sessions", sid, "submissions"), where("moduleId", "==", moduleId)),
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Submission)),
+    () => cb([])
+  );
+}
+
+/** 강사용 — 세션 전체 제출 (진행 화면·보고서) */
+export function onAllSubmissions(sid: string, cb: (list: Submission[]) => void) {
+  return onSnapshot(
+    collection(getDb(), "sessions", sid, "submissions"),
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Submission)),
+    () => cb([])
+  );
+}
+
+export function onSubmissionVersions(sid: string, submissionId: string, cb: (list: SubmissionVersion[]) => void) {
+  return onSnapshot(
+    query(collection(getDb(), "sessions", sid, "submissions", submissionId, "versions"), orderBy("version", "desc")),
+    (snap) => cb(snap.docs.map((d) => d.data() as SubmissionVersion)),
+    () => cb([])
+  );
+}
+
+/**
+ * 제출·다시 제출 — 이력 문서와 최신 문서를 한 배치로 기록 (둘 중 하나만 저장되는 일 없음).
+ * 파일 업로드는 호출 전에 모두 끝나 있어야 한다 (실패한 파일을 제출로 세지 않기 위함).
+ */
+export async function submitWork(
+  sid: string,
+  moduleId: string,
+  uid: string,
+  name: string,
+  data: { text: string; files: SubmissionFile[] },
+  currentVersion: number | null
+): Promise<number> {
+  const db = getDb();
+  const id = memberDocId(moduleId, uid);
+  const version = (currentVersion ?? 0) + 1;
+  const batch = writeBatch(db);
+  batch.set(doc(db, "sessions", sid, "submissions", id, "versions", String(version)), {
+    version,
+    text: data.text,
+    files: data.files,
+    submittedAt: serverTimestamp(),
+  });
+  batch.set(
+    doc(db, "sessions", sid, "submissions", id),
+    {
+      ...(currentVersion === null ? { moduleId, uid } : {}),
+      name,
+      version,
+      text: data.text,
+      files: data.files,
+      submittedAt: serverTimestamp(),
+      feedbackStatus: "none",
+    },
+    { merge: true }
+  );
+  await batch.commit();
+  return version;
+}
+
+/** 강사 피드백 — 해당 버전 이력에 기록하고 최신 문서에 피드백 상태 표시 */
+export async function giveFeedback(
+  sid: string,
+  submission: Submission & { id: string },
+  version: number,
+  feedback: string,
+  adminUid: string
+) {
+  const db = getDb();
+  const batch = writeBatch(db);
+  batch.update(doc(db, "sessions", sid, "submissions", submission.id, "versions", String(version)), {
+    feedback,
+    feedbackAt: serverTimestamp(),
+    feedbackBy: adminUid,
+  });
+  batch.update(doc(db, "sessions", sid, "submissions", submission.id), {
+    feedbackStatus: version === submission.version ? "reviewed" : submission.feedbackStatus,
+    feedbackVersion: Math.max(version, submission.feedbackVersion ?? 0),
+    feedbackAt: serverTimestamp(),
+  });
+  await batch.commit();
 }
 
 // ---------- 질문 상태 (posts) ----------

@@ -29,6 +29,7 @@ const emptyModule = (order: number): Module => ({
   materialPostIds: [],
   dueAt: null,
   submitUrl: null,
+  submissionEnabled: false,
 });
 
 const label = "block text-sm font-semibold text-ink mb-1";
@@ -293,6 +294,21 @@ export default function ModuleEditorModal({ open, onClose, sessionId, modules, a
                 />
               </div>
             </div>
+
+            <label className="flex items-start gap-2 p-3 rounded-lg border border-silver-mist cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!editing.submissionEnabled}
+                onChange={(e) => update({ submissionEnabled: e.target.checked })}
+                className="accent-graphite w-4 h-4 mt-0.5"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-ink">앱 안 제출함 열기</span>
+                <span className="block text-xs text-slate-text">
+                  교육생이 이 실습 결과를 글·파일로 제출합니다. 다시 제출하면 이력이 남고, 제출한 교육생끼리 서로의 최신 제출물을 볼 수 있습니다.
+                </span>
+              </span>
+            </label>
 
             {error && (
               <p role="alert" className="text-sm text-terracotta">

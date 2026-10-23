@@ -23,12 +23,15 @@ import {
   getAttachment,
   postTags,
   ReportData,
+  submissionSections,
   ReportOptions,
   splitReply,
 } from "@/lib/report";
-import { formatDate, formatDateTime, formatTime } from "@/lib/format";
+import { formatBytes, formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { METRICS } from "@/lib/metrics";
 import { isSafeExternalUrl } from "@/lib/url-safe";
+import type { Module } from "@/lib/practice";
+import type { Submission } from "@/lib/submission";
 
 type LoadState =
   | { status: "loading" }
@@ -59,10 +62,12 @@ async function loadReport(
   }
 
   const db = getDb();
-  const [pSnap, postSnap, msgSnap] = await Promise.all([
+  const [pSnap, postSnap, msgSnap, moduleSnap, subSnap] = await Promise.all([
     getDocs(query(collection(db, "sessions", sessionId, "participants"), orderBy("joinedAt", "asc"))),
     getDocs(query(collection(db, "sessions", sessionId, "posts"), orderBy("gridIndex", "asc"))),
     getDocs(query(collection(db, "sessions", sessionId, "messages"), orderBy("createdAt", "asc"))),
+    getDocs(query(collection(db, "sessions", sessionId, "modules"), orderBy("order", "asc"))),
+    getDocs(collection(db, "sessions", sessionId, "submissions")),
   ]);
   const posts = postSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Post);
   // commentCount가 없는 구 포스트도 확인 (0으로 확정된 것만 건너뜀)
@@ -80,6 +85,8 @@ async function loadReport(
       posts,
       comments: Object.fromEntries(commentEntries.filter(([, list]) => list.length > 0)),
       messages: msgSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Message),
+      modules: moduleSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Module),
+      submissions: subSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Submission),
     },
   };
 }
@@ -349,6 +356,44 @@ export default function ReportPage() {
               </ol>
             </div>
           </Card>
+
+          {submissionSections(data, options.includeParticipants).map(({ module, summary, learnerCount, rows }) => (
+            <Card key={module.id} className="p-6">
+              <div data-testid="report-submissions">
+                <p className="text-sm font-semibold text-graphite mb-1">
+                  실습 제출 — {module.title} · {module.practiceTitle}
+                </p>
+                <p className="text-sm text-slate-text mb-3">
+                  제출 {summary.submitted}명 / 교육생 {learnerCount}명 · 재제출 {summary.resubmitted} · 미제출 {summary.notSubmitted} · 피드백 완료{" "}
+                  {summary.reviewed}
+                </p>
+                <ul className="space-y-2">
+                  {rows.map(({ sub, label, reviewed }) => (
+                    <li key={sub.id} className="text-sm text-ink border-b border-silver-mist pb-2 last:border-0 break-inside-avoid">
+                      <p className="text-xs text-slate-text">
+                        {label} · {sub.version}번째 제출 · {formatDateTime(sub.submittedAt) || "시각 미확인"} ·{" "}
+                        {reviewed ? "피드백 완료" : "피드백 대기"}
+                      </p>
+                      {sub.text?.trim() && <p className="whitespace-pre-wrap">{sub.text}</p>}
+                      {(sub.files ?? []).map((f) => (
+                        <p key={f.url} className="break-all">
+                          <span className="text-slate-text">파일: </span>
+                          {options.includeLinks && isSafeExternalUrl(f.url) ? (
+                            <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blueprint underline">
+                              {f.name}
+                            </a>
+                          ) : (
+                            f.name
+                          )}
+                          <span className="text-slate-text"> · {formatBytes(f.size)}</span>
+                        </p>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Card>
+          ))}
 
           <Card className="p-6">
             <p className="text-sm font-semibold text-graphite mb-3">대화 ({messages.length}건)</p>

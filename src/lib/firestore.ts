@@ -296,8 +296,15 @@ export async function deleteSession(sessionId: string) {
     await deleteDocsInBatches(votesSnap.docs);
   }
 
+  const submissionsSnap = await getDocs(collection(db, "sessions", sessionId, "submissions"));
+  for (const sub of submissionsSnap.docs) {
+    const versionsSnap = await getDocs(collection(sub.ref, "versions"));
+    await deleteDocsInBatches(versionsSnap.docs);
+  }
+
   await deleteDocsInBatches(postsSnap.docs);
   await deleteDocsInBatches(pollsSnap.docs);
+  await deleteDocsInBatches(submissionsSnap.docs);
   for (const sub of ["participants", "messages", "modules", "progress", "helpRequests"]) {
     const snap = await getDocs(collection(db, "sessions", sessionId, sub));
     await deleteDocsInBatches(snap.docs);

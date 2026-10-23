@@ -21,8 +21,10 @@ export interface Module {
   materialPostIds: string[];
   /** 선택적 마감 — "YYYY-MM-DDTHH:mm" 한국 시간 */
   dueAt?: string | null;
-  /** 선택적 제출 링크 (제출함은 P2) */
+  /** 선택적 외부 제출 링크 */
   submitUrl?: string | null;
+  /** 앱 안 제출함 사용 (P2-01) */
+  submissionEnabled?: boolean;
   updatedAt?: Timestamp;
 }
 

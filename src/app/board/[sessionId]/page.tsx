@@ -13,6 +13,7 @@ import type { PostCardContext } from "@/components/board/PostCard";
 import type { PostFilter, PostSortMode } from "@/lib/post-kind";
 import PostInput, { PostInputHandle } from "@/components/board/PostInput";
 import QuestionsList, { QuestionViewState } from "@/components/board/QuestionsList";
+import SubmissionsView from "@/components/board/SubmissionsView";
 import GuideBanner from "@/components/board/GuideBanner";
 import ModuleEditorModal from "@/components/board/ModuleEditorModal";
 import { InstructorPanelModal, InstructorSummary } from "@/components/board/InstructorPanel";
@@ -60,14 +61,16 @@ import {
   RiLayoutMasonryLine,
   RiBookOpenLine,
   RiQuestionLine,
+  RiUploadCloud2Line,
 } from "react-icons/ri";
 
-type BoardView = "board" | "materials" | "questions";
+type BoardView = "board" | "materials" | "questions" | "submissions";
 
 const VIEW_TABS: { key: BoardView; label: string; icon: React.ReactNode }[] = [
   { key: "board", label: "보드", icon: <RiLayoutMasonryLine size={16} aria-hidden /> },
   { key: "materials", label: "자료", icon: <RiBookOpenLine size={16} aria-hidden /> },
   { key: "questions", label: "질문", icon: <RiQuestionLine size={16} aria-hidden /> },
+  { key: "submissions", label: "제출", icon: <RiUploadCloud2Line size={16} aria-hidden /> },
 ];
 
 interface ParticipantInfo {
@@ -341,6 +344,8 @@ export default function BoardPage() {
   );
   const progressSummary = activeModuleId ? summarizeProgress(progress, activeModuleId, learners.length) : null;
   const unansweredCount = posts ? countUnanswered(posts) : 0;
+  // 제출 탭은 제출함이 켜진 실습이 있을 때만 (미구현·미사용 탭을 노출하지 않음)
+  const hasSubmissionBox = modules.some((m) => m.submissionEnabled);
 
   async function handleLinkQuestion(msg: Message & { id: string }) {
     await linkMessageAsQuestion(
@@ -355,7 +360,8 @@ export default function BoardPage() {
     setView("questions");
     setMobileTab("board");
     mobileTabRef.current = "board";
-    composerRef.current?.open("question");
+    // 제출 탭에서는 입력 카드가 없으므로 탭이 바뀌어 그려진 뒤 펼친다
+    setTimeout(() => composerRef.current?.open("question"), 0);
   }
 
   const cardContext: PostCardContext = {
@@ -463,10 +469,15 @@ export default function BoardPage() {
             participantCount={learners.length}
             onAskQuestion={askQuestion}
             onEdit={() => setShowModuleEditor(true)}
+            onOpenSubmissions={() => {
+              setView("submissions");
+              setMobileTab("board");
+              mobileTabRef.current = "board";
+            }}
           />
           {/* 보기 전환 — 같은 게시물을 보드(카드 벽)·자료 목록·질문 목록으로 */}
           <div role="tablist" aria-label="게시물 보기" className="flex gap-1 px-4 pt-3 bg-parchment">
-            {VIEW_TABS.map((t) => (
+            {VIEW_TABS.filter((t) => t.key !== "submissions" || hasSubmissionBox).map((t) => (
               <button
                 key={t.key}
                 id={`view-tab-${t.key}`}
@@ -493,6 +504,7 @@ export default function BoardPage() {
               </button>
             ))}
           </div>
+          {view !== "submissions" && (
           <PostInput
             ref={composerRef}
             moduleId={activeModuleId}
@@ -505,6 +517,8 @@ export default function BoardPage() {
             blockedNames={blockedNames}
             locked={lockedForMe}
           />
+          )}
+          {view !== "submissions" && (
           <BoardToolbar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -523,11 +537,22 @@ export default function BoardPage() {
             moduleFilter={moduleFilter}
             onModuleFilterChange={setModuleFilter}
           />
+          )}
           <div id="view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`}>
             {view === "board" ? (
               <PostGrid posts={posts} filter={postFilter} sortMode={sortMode} ctx={cardContext} />
             ) : view === "materials" ? (
               <MaterialsList posts={posts} filter={postFilter} sortMode={sortMode} />
+            ) : view === "submissions" && hasSubmissionBox ? (
+              <SubmissionsView
+                sessionId={sessionId}
+                isAdmin={isAdmin}
+                modules={modules}
+                activeModuleId={activeModuleId}
+                participantId={participant.participantId}
+                participantName={participant.name}
+                learners={learners}
+              />
             ) : (
               <QuestionsList
                 posts={posts}

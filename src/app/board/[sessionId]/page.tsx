@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth as firebaseAuth, waitForAuthUser } from "@/lib/firebase";
 import Nav from "@/components/layout/Nav";
-import PostGrid, { PostSortMode } from "@/components/board/PostGrid";
+import PostGrid from "@/components/board/PostGrid";
+import MaterialsList from "@/components/board/MaterialsList";
+import type { PostCardContext } from "@/components/board/PostCard";
+import type { PostFilter, PostSortMode } from "@/lib/post-kind";
 import PostInput from "@/components/board/PostInput";
 import ChatPanel from "@/components/chat/ChatPanel";
 import AnnouncementModal from "@/components/board/AnnouncementModal";
@@ -28,11 +31,21 @@ import {
   setBoardLocked,
   addParticipant,
   isSuperAdmin,
+  touchSessionLastUsed,
   HEARTBEAT_SECONDS,
+  Post,
   PostColor,
+  PostKind,
   Session,
 } from "@/lib/firestore";
-import { RiChat3Line, RiStickyNoteLine, RiLockFill } from "react-icons/ri";
+import { RiChat3Line, RiStickyNoteLine, RiLockFill, RiLayoutMasonryLine, RiBookOpenLine } from "react-icons/ri";
+
+type BoardView = "board" | "materials";
+
+const VIEW_TABS: { key: BoardView; label: string; icon: React.ReactNode }[] = [
+  { key: "board", label: "보드", icon: <RiLayoutMasonryLine size={16} aria-hidden /> },
+  { key: "materials", label: "자료", icon: <RiBookOpenLine size={16} aria-hidden /> },
+];
 
 interface ParticipantInfo {
   participantId: string;
@@ -50,7 +63,7 @@ export default function BoardPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [participantCount, setParticipantCount] = useState(0);
   const [participant, setParticipant] = useState<ParticipantInfo | null>(null);
-  const [postCount, setPostCount] = useState(0);
+  const [posts, setPosts] = useState<Post[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("board");
@@ -60,8 +73,12 @@ export default function BoardPage() {
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<PostSortMode>("default");
-  const [questionsOnly, setQuestionsOnly] = useState(false);
+  const [kindFilter, setKindFilter] = useState<PostKind | null>(null);
+  const [instructorOnly, setInstructorOnly] = useState(false);
   const [colorFilter, setColorFilter] = useState<PostColor | null>(null);
+  const [view, setView] = useState<BoardView>("board");
+  // 입력 중에도 타이핑이 끊기지 않도록 검색 결과 계산은 뒤로 미룬다 (서버 요청은 없음 — 받은 게시물에서 검색)
+  const deferredQuery = useDeferredValue(searchQuery);
   // 좁은 화면 안 읽은 대화 배지 — 전체 메시지 수와 마지막 확인 수의 차
   const [chatTotal, setChatTotal] = useState<number | null>(null);
   const [chatSeen, setChatSeen] = useState<number | null>(null);
@@ -129,6 +146,8 @@ export default function BoardPage() {
         } catch {
           // 참여자 등록이 실패해도 보드 열람은 진행
         }
+        // 관리자 목록 "최근 사용순" 정렬용 — 실패해도 입장에는 영향 없음
+        touchSessionLastUsed(sessionId).catch(() => {});
         if (cancelled) return;
         const info = { participantId: fbUser.uid, name };
         sessionStorage.setItem(`padolet_${sessionId}`, JSON.stringify(info));
@@ -151,9 +170,10 @@ export default function BoardPage() {
     return () => unsub();
   }, [sessionId]);
 
+  // 게시물 구독은 여기서 한 번만 — 보드·자료 보기와 입력창(배치 순서)이 함께 쓴다
   useEffect(() => {
     if (!sessionId) return;
-    const unsub = onPosts(sessionId, (p) => setPostCount(p.length));
+    const unsub = onPosts(sessionId, setPosts);
     return () => unsub();
   }, [sessionId]);
 
@@ -237,6 +257,24 @@ export default function BoardPage() {
   // 참여자 기준 잠금 (admin은 잠금 중에도 모든 기능 사용 가능)
   const lockedForMe = boardLocked && !isAdmin;
 
+  const postFilter: PostFilter = {
+    query: deferredQuery,
+    kind: kindFilter,
+    instructorOnly,
+    color: colorFilter,
+    sessionOwnerId: session?.createdBy,
+  };
+  const cardContext: PostCardContext = {
+    sessionId,
+    isAdmin,
+    sessionOwnerId: session?.createdBy,
+    currentUserId: participant.participantId,
+    currentUserName: participant.name,
+    bannedWords,
+    spotlightPostId: session?.spotlightPostId,
+    locked: lockedForMe,
+  };
+
   async function handleToggleLock() {
     if (!isAdmin) return;
     const next = !boardLocked;
@@ -307,11 +345,33 @@ export default function BoardPage() {
           aria-label="보드"
           className={`${mobileTab === "board" ? "flex" : "hidden"} lg:flex flex-1 min-w-0 flex-col overflow-y-auto`}
         >
+          {/* 보기 전환 — 같은 게시물을 보드(카드 벽) 또는 자료 목록으로 */}
+          <div role="tablist" aria-label="게시물 보기" className="flex gap-1 px-4 pt-3 bg-parchment">
+            {VIEW_TABS.map((t) => (
+              <button
+                key={t.key}
+                id={`view-tab-${t.key}`}
+                role="tab"
+                aria-selected={view === t.key}
+                aria-controls="view-panel"
+                onClick={() => setView(t.key)}
+                className={`touch-target inline-flex items-center gap-1.5 h-10 px-4 rounded-t-lg text-sm font-semibold border-b-2 cursor-pointer ${
+                  view === t.key
+                    ? "text-graphite border-graphite bg-chalk-card"
+                    : "text-slate-text border-transparent hover:text-graphite"
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
           <PostInput
             sessionId={sessionId}
             authorId={participant.participantId}
             authorName={participant.name}
-            currentPostCount={postCount}
+            currentPostCount={posts?.length ?? 0}
+            isAdmin={isAdmin}
             bannedWords={bannedWords}
             blockedNames={blockedNames}
             locked={lockedForMe}
@@ -323,24 +383,20 @@ export default function BoardPage() {
             participantCount={participantCount}
             sortMode={sortMode}
             onSortChange={setSortMode}
-            questionsOnly={questionsOnly}
-            onQuestionsOnlyChange={setQuestionsOnly}
+            kindFilter={kindFilter}
+            onKindFilterChange={setKindFilter}
+            instructorOnly={instructorOnly}
+            onInstructorOnlyChange={setInstructorOnly}
             colorFilter={colorFilter}
             onColorFilterChange={setColorFilter}
           />
-          <PostGrid
-            sessionId={sessionId}
-            isAdmin={isAdmin}
-            currentUserId={participant.participantId}
-            currentUserName={participant.name}
-            bannedWords={bannedWords}
-            searchQuery={searchQuery}
-            sortMode={sortMode}
-            questionsOnly={questionsOnly}
-            colorFilter={colorFilter}
-            spotlightPostId={session?.spotlightPostId}
-            locked={lockedForMe}
-          />
+          <div id="view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`}>
+            {view === "board" ? (
+              <PostGrid posts={posts} filter={postFilter} sortMode={sortMode} ctx={cardContext} />
+            ) : (
+              <MaterialsList posts={posts} filter={postFilter} sortMode={sortMode} />
+            )}
+          </div>
         </main>
         <aside
           id="chat-panel"

@@ -54,9 +54,9 @@ test("보고서 화면과 MD에 첨부 전용 게시물의 파일명·링크·�
 
 test("위임 관리자는 본인이 만든 세션의 보고서를 열 수 있다", async ({ page }) => {
   await loginAsAdmin(page, TEACHER.email);
-  await page.getByRole("button", { name: "새 세션 생성" }).click();
-  await page.getByPlaceholder("세션 제목").fill("위임 관리자 세션");
-  await page.getByRole("button", { name: "생성", exact: true }).click();
+  await page.getByRole("button", { name: "새 세션 만들기" }).click();
+  await page.getByLabel("세션 제목").fill("위임 관리자 세션");
+  await page.getByRole("button", { name: "만들기", exact: true }).click();
   await page.getByRole("button", { name: "닫기" }).last().click();
 
   const row = page.getByTestId(/session-row-/).filter({ hasText: "위임 관리자 세션" });

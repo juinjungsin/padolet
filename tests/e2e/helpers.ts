@@ -13,6 +13,13 @@ export async function loginAsAdmin(page: Page, email: string) {
   await expect(page.getByRole("heading", { name: "세션 관리" })).toBeVisible();
 }
 
+/** 접혀 있는 포스트잇 입력 카드를 펼친다 (이미 펼쳐져 있으면 그대로) */
+export async function openComposer(page: Page) {
+  const collapsed = page.getByRole("button", { name: /포스트잇 남기기/ });
+  if (await collapsed.isVisible()) await collapsed.click();
+  await expect(page.getByLabel("포스트잇 내용")).toBeVisible();
+}
+
 /** 교육생 입장 — 첫 시도에 보드까지 들어가야 한다 */
 export async function joinAsParticipant(page: Page, code: string, name: string) {
   await page.goto(`/join?code=${code}`);

@@ -21,6 +21,7 @@ import {
   buildReportMarkdown,
   DEFAULT_REPORT_OPTIONS,
   getAttachment,
+  postTags,
   ReportData,
   ReportOptions,
   splitReply,
@@ -314,13 +315,15 @@ export default function ReportPage() {
               <ol className="space-y-4">
                 {posts.map((p, i) => {
                   const list = (p.id && comments[p.id]) || [];
-                  const tags = [p.pinned && "고정됨", p.isQuestion && "질문", p.editedAt && "수정됨"].filter(Boolean);
+                  const tags = postTags(p);
                   return (
                     <li key={p.id} className="border-b border-silver-mist pb-3 last:border-0 break-inside-avoid">
                       <p className="text-xs text-slate-text mb-1">
                         {i + 1}. {p.authorName} · {formatDateTime(p.createdAt) || "시각 미확인"}
                         {tags.length > 0 && <span className="ml-2 text-graphite">({tags.join(" · ")})</span>}
                       </p>
+                      {p.title?.trim() && <p className="text-sm font-bold text-graphite">{p.title}</p>}
+                      {p.purpose?.trim() && <p className="text-xs text-slate-text">사용 목적: {p.purpose}</p>}
                       {p.content?.trim() && (
                         <p className="text-sm text-ink whitespace-pre-wrap break-words">{p.content}</p>
                       )}

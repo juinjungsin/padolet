@@ -1,6 +1,6 @@
 import { test, expect, Browser, Page } from "@playwright/test";
 import { seed, SEED, SUPER_ADMIN } from "../support/seed.mjs";
-import { joinAsParticipant, loginAsAdmin } from "./helpers";
+import { joinAsParticipant, loginAsAdmin, openComposer } from "./helpers";
 
 // 기존 주요 기능 회귀 (QA-01, QA-11 일부) — 교육생 1명 + 관리자 1명, 서로 다른 브라우저 컨텍스트
 test.describe.configure({ mode: "serial" });
@@ -37,6 +37,7 @@ test("기존 게시물·첨부·댓글·고정 상태가 보존되어 보인다 
 });
 
 test("교육생 글 게시 → 관리자 화면에 실시간 반영", async () => {
+  await openComposer(student);
   await student.getByPlaceholder("포스트잇에 내용을 작성하세요").first().fill("회귀 테스트 게시물");
   await student.getByRole("button", { name: "게시", exact: true }).first().click();
   await expect(visible(admin, "post-board")).toContainText("회귀 테스트 게시물");
@@ -94,9 +95,16 @@ test("보드 잠금(강사 도구) → 교육생 작성 차단, 해제 후 복�
   await admin.getByRole("button", { name: "강사 도구" }).click();
   await admin.getByRole("menuitem", { name: /보드 잠금/ }).click();
   await expect(student.getByText("보드가 잠금 상태입니다.").first()).toBeVisible();
-  await expect(student.getByPlaceholder("보드가 잠금 상태입니다 — 열람만 가능합니다").first()).toBeDisabled();
+  // 입력 카드는 펼친 상태(입력창)든 접힌 상태(버튼)든 모두 비활성
+  const lockedComposer = student
+    .getByPlaceholder("보드가 잠금 상태입니다 — 열람만 가능합니다")
+    .or(student.getByRole("button", { name: "보드가 잠금 상태입니다 — 열람만 가능합니다" }));
+  await expect(lockedComposer.first()).toBeDisabled();
 
   await admin.getByRole("button", { name: "강사 도구" }).click();
   await admin.getByRole("menuitem", { name: "보드 잠금 해제" }).click();
-  await expect(student.getByPlaceholder("포스트잇에 내용을 작성하세요").first()).toBeEnabled();
+  const openComposerControl = student
+    .getByPlaceholder("포스트잇에 내용을 작성하세요")
+    .or(student.getByRole("button", { name: /포스트잇 남기기/ }));
+  await expect(openComposerControl.first()).toBeEnabled();
 });

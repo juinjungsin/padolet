@@ -1,10 +1,10 @@
 "use client";
 
-import { POST_COLORS, PostColor } from "@/lib/firestore";
+import { POST_COLORS, PostColor, PostKind } from "@/lib/firestore";
 import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { METRICS } from "@/lib/metrics";
-import { PostSortMode } from "./PostGrid";
-import { RiSearchLine, RiCloseLine, RiTeamLine, RiQuestionLine } from "react-icons/ri";
+import { POST_KINDS, PostSortMode, SORT_RULE_HELP } from "@/lib/post-kind";
+import { RiSearchLine, RiCloseLine, RiTeamLine, RiUserStarLine } from "react-icons/ri";
 
 interface Props {
   searchQuery: string;
@@ -13,14 +13,18 @@ interface Props {
   participantCount: number;
   sortMode: PostSortMode;
   onSortChange: (m: PostSortMode) => void;
-  questionsOnly: boolean;
-  onQuestionsOnlyChange: (v: boolean) => void;
+  kindFilter: PostKind | null;
+  onKindFilterChange: (k: PostKind | null) => void;
+  instructorOnly: boolean;
+  onInstructorOnlyChange: (v: boolean) => void;
   colorFilter: PostColor | null;
   onColorFilterChange: (c: PostColor | null) => void;
 }
 
 const pill =
   "touch-target inline-flex items-center justify-center gap-1.5 h-9 px-3 text-sm font-semibold rounded-full border transition-colors cursor-pointer";
+const select =
+  "touch-target h-9 px-3 text-sm text-ink bg-chalk-card border border-field-border rounded-full outline-none focus:border-graphite cursor-pointer";
 
 export default function BoardToolbar({
   searchQuery,
@@ -29,8 +33,10 @@ export default function BoardToolbar({
   participantCount,
   sortMode,
   onSortChange,
-  questionsOnly,
-  onQuestionsOnlyChange,
+  kindFilter,
+  onKindFilterChange,
+  instructorOnly,
+  onInstructorOnlyChange,
   colorFilter,
   onColorFilterChange,
 }: Props) {
@@ -46,7 +52,7 @@ export default function BoardToolbar({
           type="search"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="본문·작성자·파일명 검색"
+          placeholder="제목·본문·작성자·파일명 검색"
           aria-label="포스트잇 검색"
           className="w-full h-10 pl-9 pr-10 text-sm text-ink bg-chalk-card border border-field-border rounded-full outline-none focus:border-graphite"
         />
@@ -62,10 +68,25 @@ export default function BoardToolbar({
       </div>
 
       <select
+        value={kindFilter ?? ""}
+        onChange={(e) => onKindFilterChange((e.target.value || null) as PostKind | null)}
+        aria-label="게시물 유형 필터"
+        className={select}
+      >
+        <option value="">모든 유형</option>
+        {POST_KINDS.map((k) => (
+          <option key={k.key} value={k.key}>
+            {k.label}
+          </option>
+        ))}
+      </select>
+
+      <select
         value={sortMode}
         onChange={(e) => onSortChange(e.target.value as PostSortMode)}
-        aria-label="포스트잇 정렬"
-        className="touch-target h-9 px-3 text-sm text-ink bg-chalk-card border border-field-border rounded-full outline-none focus:border-graphite cursor-pointer"
+        aria-label={`정렬 — ${SORT_RULE_HELP}`}
+        title={SORT_RULE_HELP}
+        className={select}
       >
         <option value="default">등록순</option>
         <option value="latest">최신순</option>
@@ -73,17 +94,17 @@ export default function BoardToolbar({
       </select>
 
       <button
-        onClick={() => onQuestionsOnlyChange(!questionsOnly)}
-        aria-pressed={questionsOnly}
+        onClick={() => onInstructorOnlyChange(!instructorOnly)}
+        aria-pressed={instructorOnly}
         className={`${pill} ${
-          questionsOnly
+          instructorOnly
             ? "bg-graphite text-chalk-card border-graphite"
             : "bg-chalk-card text-ink border-silver-mist hover:border-graphite"
         }`}
-        title="질문으로 등록된 포스트잇만 표시"
+        title="강사가 올린 글만 표시"
       >
-        <RiQuestionLine size={16} aria-hidden />
-        질문만
+        <RiUserStarLine size={16} aria-hidden />
+        강사 게시
       </button>
 
       <div className="flex items-center" role="group" aria-label="색상 필터">

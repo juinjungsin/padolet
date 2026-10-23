@@ -116,6 +116,10 @@ export interface Session {
   spotlightPostId?: string | null;
   /** 보드 잠금 — true면 참여자는 열람만 가능 (작성/대화/리액션 차단) */
   locked?: boolean;
+  /** 교육일 "YYYY-MM-DD" (생성일과 별개, 미설정 가능) */
+  eventDate?: string | null;
+  /** 관리자가 마지막으로 보드에 들어간 시각 — 관리자 목록 "최근 사용순" 정렬용 */
+  lastUsedAt?: Timestamp | null;
 }
 
 export interface Participant {
@@ -145,10 +149,20 @@ export function reactionTotal(reactions: ReactionMap | undefined): number {
   return REACTIONS.reduce((sum, r) => sum + (reactions[r.key]?.length || 0), 0);
 }
 
+/** 게시물 유형 (P1-02). 미설정 이전 데이터는 post-kind.ts의 getPostKind()로 읽는다 */
+export type PostKind = "general" | "notice" | "material" | "question" | "prompt";
+
 export interface Post {
   id?: string;
   authorId: string;
   authorName: string;
+  /** 작성 시점의 역할 — 강사 게시 필터용 (이전 데이터는 세션 소유자 여부로 판단) */
+  authorRole?: "admin" | "participant";
+  kind?: PostKind;
+  /** 자료·프롬프트의 표시용 제목 (원본 파일명은 fileMeta.name에 그대로 보존) */
+  title?: string;
+  /** 프롬프트 사용 목적 */
+  purpose?: string;
   content: string;
   type: "text" | "link" | "image" | "file";
   fileUrl?: string;
@@ -160,7 +174,7 @@ export interface Post {
   editedAt?: Timestamp | null;
   /** 리액션 — { up: [uid, ...], heart: [...], clap: [...] } */
   reactions?: ReactionMap;
-  /** 질문 여부 (Q&A 모드) */
+  /** 질문 여부 (Q&A 모드) — kind와 함께 저장해 이전 화면(프로젝터 등)과 호환 */
   isQuestion?: boolean;
   /** 색상 태그 (미설정 = yellow) */
   color?: PostColor;
@@ -740,6 +754,7 @@ export async function duplicateSession(
   return createSession({
     title: `${source.title} (복사)`,
     description: source.description || "",
+    eventDate: null,
     code: newCode,
     createdBy,
     requireGoogleLogin: source.requireGoogleLogin ?? false,
@@ -764,10 +779,30 @@ export async function reopenSession(sessionId: string) {
   });
 }
 
+/** 보관 — 목록 기본 보기에서 숨기고 새 입장 차단. 데이터는 그대로 남아 보관 해제로 되돌릴 수 있다 */
 export async function archiveSession(sessionId: string) {
   await updateDoc(doc(getDb(), "sessions", sessionId), {
     status: "archived",
   });
+}
+
+/** 보관 해제 — 종료한 적 있으면 종료 상태로, 아니면 진행 중으로 */
+export async function unarchiveSession(session: Session & { id: string }) {
+  await updateDoc(doc(getDb(), "sessions", session.id), {
+    status: session.endedAt ? "ended" : "active",
+  });
+}
+
+export async function updateSessionInfo(
+  sessionId: string,
+  data: { title: string; description: string; eventDate: string | null }
+) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), data);
+}
+
+/** 관리자가 보드에 들어갈 때 기록 (최근 사용순 정렬). 실패해도 입장에는 영향 없음 */
+export async function touchSessionLastUsed(sessionId: string) {
+  await updateDoc(doc(getDb(), "sessions", sessionId), { lastUsedAt: serverTimestamp() });
 }
 
 export function getSessionStatus(s: Session): SessionStatus {

@@ -3,6 +3,7 @@
 import type { Comment, Message, Participant, Post, Session } from "./firestore";
 import { formatBytes, formatDate, formatDateTime, formatTime } from "./format";
 import { METRICS } from "./metrics";
+import { getPostKind, POST_KIND_LABEL } from "./post-kind";
 
 export interface ReportOptions {
   /** 참여자 명단 포함 (외부 공유 시 끌 수 있음) */
@@ -61,6 +62,14 @@ function attachmentMd(a: AttachmentInfo, includeLinks: boolean): string {
   return `첨부(${a.kind}): ${name} · ${a.size}`;
 }
 
+/** 보고서 항목 표시: 유형(일반 제외)·고정·수정 */
+export function postTags(p: Post): string[] {
+  const kind = getPostKind(p);
+  return [kind !== "general" && POST_KIND_LABEL[kind], p.pinned && "고정됨", p.editedAt && "수정됨"].filter(
+    (t): t is string => !!t
+  );
+}
+
 /** 여러 줄 본문을 목록 항목 아래에 들여써서 붙인다 */
 const indent = (text: string, pad = "  ") => text.split("\n").map((l) => (l ? pad + l : l)).join("\n");
 
@@ -85,9 +94,11 @@ export function buildReportMarkdown(data: ReportData, options: ReportOptions = D
   out.push(`## 포스트잇 (${posts.length}개)`, "");
   posts.forEach((p, i) => {
     out.push(`### ${i + 1}. ${p.authorName} · ${formatDateTime(p.createdAt) || "시각 미확인"}`);
-    const tags = [p.pinned && "고정됨", p.isQuestion && "질문", p.editedAt && "수정됨"].filter(Boolean);
+    const tags = postTags(p);
     if (tags.length) out.push(`(${tags.join(" · ")})`);
     out.push("");
+    if (p.title?.trim()) out.push(`**${p.title.trim()}**`, "");
+    if (p.purpose?.trim()) out.push(`사용 목적: ${p.purpose.trim()}`, "");
     if (p.content?.trim()) out.push(p.content.trim(), "");
     const a = getAttachment(p);
     if (a) out.push(`- ${attachmentMd(a, options.includeLinks)}`, "");

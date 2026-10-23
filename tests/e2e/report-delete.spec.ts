@@ -25,8 +25,11 @@ test("보고서 PDF 출력 — 액션 버튼은 숨기고 첨부·본문은 포�
 test("세션 삭제 시 댓글·투표 응답까지 함께 삭제된다", async ({ page }) => {
   await loginAsAdmin(page, SUPER_ADMIN.email);
   const row = page.getByTestId(`session-row-${SEED.main.id}`);
-  await row.getByRole("button", { name: "삭제" }).click();
-  await page.getByRole("button", { name: "확인하고 삭제" }).click();
+  await row.getByRole("button", { name: /더보기/ }).click();
+  await page.getByRole("menuitem", { name: "삭제…" }).click();
+  // 삭제 확인 창은 복구 가능한 '보관'을 함께 안내한다
+  await expect(page.getByRole("dialog")).toContainText("삭제 대신 보관");
+  await page.getByRole("button", { name: "영구 삭제" }).click();
   await expect(row).toHaveCount(0);
 
   const env = await createTestEnv();

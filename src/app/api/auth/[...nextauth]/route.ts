@@ -1,6 +1,46 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { isSuperAdmin, isDelegatedAdmin } from "@/lib/firestore";
+
+/**
+ * 로컬 에뮬레이터 전용 관리자 로그인 — Google OAuth 없이 이메일만으로 로그인.
+ * 에뮬레이터 모드 + 개발 서버일 때만 등록되며 운영 빌드(NODE_ENV=production)에는 존재하지 않는다.
+ * 관리자 허용 목록 검사(signIn callback)는 그대로 적용된다.
+ */
+const EMULATOR_LOGIN_ENABLED =
+  process.env.NEXT_PUBLIC_USE_EMULATOR === "1" && process.env.NODE_ENV !== "production";
+
+const emulatorProviders = EMULATOR_LOGIN_ENABLED
+  ? [
+      CredentialsProvider({
+        id: "emulator",
+        name: "Emulator",
+        credentials: { email: { type: "email" }, name: { type: "text" } },
+        async authorize(credentials) {
+          const email = credentials?.email?.trim().toLowerCase();
+          if (!email) return null;
+          return { id: `emu-${email}`, email, name: credentials?.name || email.split("@")[0] };
+        },
+      }),
+    ]
+  : [];
+
+/**
+ * 위임 관리자 허용 목록 확인.
+ * 에뮬레이터 모드에서는 Next 서버 번들의 gRPC 연결이 에뮬레이터에 붙지 않아 REST로 조회한다
+ * (admins 컬렉션은 공개 읽기). 운영 경로는 기존 SDK 조회 그대로.
+ */
+async function isAllowedDelegatedAdmin(email: string): Promise<boolean> {
+  if (EMULATOR_LOGIN_ENABLED) {
+    const project = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const res = await fetch(
+      `http://127.0.0.1:8080/v1/projects/${project}/databases/(default)/documents/admins/${encodeURIComponent(email.toLowerCase())}`
+    );
+    return res.ok;
+  }
+  return isDelegatedAdmin(email);
+}
 
 const handler = NextAuth({
   providers: [
@@ -8,6 +48,7 @@ const handler = NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
+    ...emulatorProviders,
   ],
   session: {
     // 8시간 후 자동 만료 (강의 1회 분량 + 여유)
@@ -20,7 +61,7 @@ const handler = NextAuth({
       if (!email) return false;
       if (isSuperAdmin(email)) return true;
       try {
-        return await isDelegatedAdmin(email);
+        return await isAllowedDelegatedAdmin(email);
       } catch (err) {
         // fail-closed — Firestore 조회 실패 시 로그인 거부
         console.error("[next-auth] admin allowlist lookup failed", err);
@@ -34,7 +75,18 @@ const handler = NextAuth({
      * Firestore Rules는 Firebase Auth의 request.auth.token.email로 관리자 판별하므로
      * NextAuth만으로는 write 불가.
      */
-    async jwt({ token, account }) {
+    async jwt({ token, account, user }) {
+      // 에뮬레이터 로그인: Auth 에뮬레이터는 서명 없는 JSON id_token을 Google 자격증명으로 받아준다
+      if (EMULATOR_LOGIN_ENABLED && account?.provider === "emulator" && user?.email) {
+        token.googleIdToken = JSON.stringify({
+          sub: user.id,
+          email: user.email,
+          email_verified: true,
+          name: user.name,
+        });
+        token.googleIdTokenExpires = Date.now() + 3600 * 1000;
+        return token;
+      }
       if (account?.id_token) {
         token.googleIdToken = account.id_token;
         // Google id_token 유효기간(약 1시간)

@@ -2,6 +2,7 @@
 
 import { POST_COLORS, PostColor } from "@/lib/firestore";
 import { POST_COLOR_STYLES } from "@/lib/post-colors";
+import { METRICS } from "@/lib/metrics";
 import { PostSortMode } from "./PostGrid";
 import { RiSearchLine, RiCloseLine, RiTeamLine, RiQuestionLine, RiTimerFlashLine } from "react-icons/ri";
 
@@ -118,9 +119,11 @@ export default function BoardToolbar({
 
       <button
         onClick={onOpenParticipants}
+        title={`참여자 보기 — ${METRICS.cumulative.label} ${participantCount}명`}
+        aria-label={`참여자 보기, ${METRICS.cumulative.label} ${participantCount}명`}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ink bg-chalk-card border border-silver-mist rounded-full hover:border-graphite transition-colors cursor-pointer"
       >
-        <RiTeamLine size={14} />
+        <RiTeamLine size={14} aria-hidden />
         {participantCount}
       </button>
     </div>

@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 // Firebase + NextAuth + Google OAuth + 첨부 이미지가 동작하도록 도메인을 허용하는 최소 CSP.
 // 'unsafe-inline'은 Tailwind / Next 인라인 스타일을 위해 style-src에 포함. script는 'self'와 nonce 없는
 // 인라인을 허용하지 않음 (Next 16의 인라인 부트스트랩은 hash 기반으로 처리됨).
+// 로컬 에뮬레이터 모드(NEXT_PUBLIC_USE_EMULATOR=1)에서만 127.0.0.1 에뮬레이터 포트를 추가 허용.
+const emulatorOrigins =
+  process.env.NEXT_PUBLIC_USE_EMULATOR === "1"
+    ? " http://127.0.0.1:9099 http://127.0.0.1:8080 ws://127.0.0.1:8080 http://127.0.0.1:9199"
+    : "";
+
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -12,9 +18,9 @@ const csp = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://*.googleusercontent.com https://*.firebaseapp.com https://*.firebasestorage.app https://firebasestorage.googleapis.com",
+  `img-src 'self' data: blob: https://*.googleusercontent.com https://*.firebaseapp.com https://*.firebasestorage.app https://firebasestorage.googleapis.com${emulatorOrigins}`,
   "media-src 'self' blob:",
-  "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com https://accounts.google.com",
+  `connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com https://accounts.google.com${emulatorOrigins}`,
   "frame-src 'self' https://accounts.google.com",
 ].join("; ");
 

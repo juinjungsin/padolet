@@ -212,3 +212,52 @@ Phase 8 — 텍스트 파일 한글 깨짐 수정 + HTML 업로드 허용 (2026-
     - 기존에 업로드된 텍스트 파일은 charset 없이 저장돼 있어 재업로드해야 정상 표시
     - Storage Rules 변경 시 반드시 규칙 배포 → 앱 배포 순서 (반대면 업로드 403)
     - 커스텀 도메인 juinjungsin.site 접속 불가 상태 확인 (padolet.vercel.app 정상) — DNS 점검 필요
+
+
+Phase 9 — 교육 대시보드 개선 1단계: P0 신뢰성 수정 + 로컬 검증 환경 (2026-10-23)
+
+  근거: Downloads\# 파도렛 교육 커뮤니케이션 대시보드 개선 요구사항.md (P0·P1, 단계별 승인)
+  복구 지점: 태그 restore-20261023 (8808503) + JBlet\_backups\padolet_restore-point_20261023\RESTORE.md
+
+  원인 (코드·운영 데이터 읽기 조회·에뮬레이터 재현으로 확인)
+    - 교육생 첫 입장 실패: addParticipant가 세션 문서 participantCount를 증가시키는데
+      7/8 Firestore Rules 이후 참여자는 세션 문서 수정 불가 → "입장에 실패했습니다".
+      참여자 문서는 이미 생성돼 재시도 시에는 입장됨. 에뮬레이터에서 재현 확인.
+    - 관리자 목록 참여자 1명 vs 보드 54명: 같은 원인으로 7/8 이후 세션 28개의 participantCount가 1에 고정
+      (운영 35개 중 14개 불일치, 읽기 전용 조회)
+    - 보고서 첨부 누락: 화면·MD 모두 content만 출력 → 파일·이미지 전용 게시물이 빈 항목
+    - 위임 관리자 보고서 접근 불가: 소유자 판별이 NextAuth id 기준 (세션 createdBy는 Firebase uid)
+    - 참여자 활동 통계가 이름 기준 → 동명이인 합산
+    - 세션 삭제 시 댓글·투표 응답 하위 컬렉션 잔존
+
+  변경
+    src/lib/firestore.ts     addParticipant의 participantCount 증가 제거, getParticipantCount(집계 쿼리),
+                             deleteSession이 댓글·투표 응답까지 삭제, getComments
+    src/lib/metrics.ts       지표 정의 단일화: 누적 입장(참여자 문서 수) / 최근 활동(약 3분), 식별자 기준 집계
+    src/lib/format.ts        용량 B·KB·MB(0 B와 크기 미확인 구분), 한국 시간 고정 표기
+    src/lib/report.ts        보고서 MD 직렬화 — 첨부 파일명·링크·용량·시각, 댓글, 숨긴 메시지 본문 제외,
+                             공유용 옵션(참여자 명단·첨부 링크 제외)
+    admin/report             권한 판별을 Firebase uid 기준(구 세션 호환), 화면·PDF·MD 동일 항목, 내보내기 옵션
+    admin                    누적 입장을 집계 쿼리로 표시(집계 중/확인 불가 구분), 레포트→보고서
+    PostGrid·ChatPanel·Nav·ParticipantsPanel·BoardToolbar·projector
+                             문구 한국어 통일(고정됨/복사/답글/숨기기/차단/수정/보고서), 용량 표시, 지표 이름·설명
+    ui/Card                  div 속성 전달 (data-testid 등)
+
+  로컬 검증 환경 (운영 Firebase 미접속, demo-padolet)
+    - 휴대용 JDK 21: C:\Users\juinj\tools\jdk-21.* (scripts/emulators.mjs가 자동 탐색)
+    - npm run emulators      Auth·Firestore·Storage 에뮬레이터
+    - npm run dev:emulator   에뮬레이터 연결 개발 서버 http://localhost:3100 (관리자 화면에 에뮬레이터 로그인 표시)
+    - npm run seed           가상 데이터 (세션 코드 TEST / EMPT / ENDD)
+    - npm test               단위 테스트 (Vitest)
+    - npm run test:rules     보안 규칙 테스트 (에뮬레이터 자동 기동)
+    - npm run test:e2e       Playwright E2E (에뮬레이터·개발 서버 자동 기동)
+    - 에뮬레이터 로그인은 NEXT_PUBLIC_USE_EMULATOR=1 + 개발 서버에서만 등록 (운영 빌드에 미포함 확인)
+
+  검증 (2026-10-23 실행)
+    - npm test 15/15, npm run test:rules 8/8, npm run test:e2e 15/15, tsc 통과, npm run build 통과
+    - PDF 출력물 확인 (Playwright page.pdf): 첨부 전용 게시물·0 B 파일·댓글·숨긴 메시지 표시
+    - ESLint: 신규 오류 없음, 기존 패턴 경고 1건(admin useEffect deps — 3단계 관리자 목록 개편 때 정리)
+
+  데이터 영향
+    - 마이그레이션 없음. sessions.participantCount 필드는 그대로 두고 표시에만 쓰지 않음
+    - Firestore/Storage Rules 변경 없음 → 앱 배포만 필요

@@ -1,7 +1,8 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator, Firestore } from "firebase/firestore";
 import {
   getAuth,
+  connectAuthEmulator,
   Auth,
   GoogleAuthProvider,
   signInWithCredential,
@@ -9,6 +10,14 @@ import {
   onAuthStateChanged,
   User,
 } from "firebase/auth";
+
+/**
+ * 로컬 검증용 Firebase 에뮬레이터 모드 (npm run dev:emulator / e2e 테스트에서만 켜짐).
+ * 운영(Vercel)에는 이 값이 없으므로 항상 실제 Firebase에 연결된다.
+ */
+export const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_EMULATOR === "1";
+export const EMULATOR_HOST = "127.0.0.1";
+export const EMULATOR_PORTS = { auth: 9099, firestore: 8080, storage: 9199 } as const;
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -38,12 +47,22 @@ function getApp(): FirebaseApp {
 }
 
 function getDb(): Firestore {
-  if (!db) db = getFirestore(getApp());
+  if (!db) {
+    db = getFirestore(getApp());
+    if (USE_EMULATOR) connectFirestoreEmulator(db, EMULATOR_HOST, EMULATOR_PORTS.firestore);
+  }
   return db;
 }
 
 function getAuthInstance(): Auth {
-  if (!auth) auth = getAuth(getApp());
+  if (!auth) {
+    auth = getAuth(getApp());
+    if (USE_EMULATOR) {
+      connectAuthEmulator(auth, `http://${EMULATOR_HOST}:${EMULATOR_PORTS.auth}`, {
+        disableWarnings: true,
+      });
+    }
+  }
   return auth;
 }
 
@@ -97,9 +116,11 @@ export async function signInAsAnonymousUser(): Promise<User> {
  * 초기 로딩 시 auth 복원이 비동기라 currentUser가 null인 순간이 있음.
  * timeoutMs 초과하면 null 반환.
  */
-export function waitForAuthUser(timeoutMs = 3000): Promise<User | null> {
+export function waitForAuthUser(timeoutMs = 3000, options: { requireGoogle?: boolean } = {}): Promise<User | null> {
   const a = getAuthInstance();
-  if (a.currentUser) return Promise.resolve(a.currentUser);
+  // requireGoogle: 같은 브라우저에서 교육생으로 입장했던 익명 계정이 남아 있으면 Google 로그인 완료까지 기다림
+  const accept = (u: User | null): u is User => !!u && (!options.requireGoogle || !u.isAnonymous);
+  if (accept(a.currentUser)) return Promise.resolve(a.currentUser);
   return new Promise((resolve) => {
     let done = false;
     const timer = setTimeout(() => {
@@ -110,7 +131,7 @@ export function waitForAuthUser(timeoutMs = 3000): Promise<User | null> {
     }, timeoutMs);
     const unsub = onAuthStateChanged(a, (user) => {
       if (done) return;
-      if (user) {
+      if (accept(user)) {
         done = true;
         clearTimeout(timer);
         unsub();

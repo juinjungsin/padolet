@@ -15,6 +15,7 @@ import {
   setSpotlightPost,
 } from "@/lib/firestore";
 import { postColorBg } from "@/lib/post-colors";
+import { formatBytes, formatTime } from "@/lib/format";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import Card from "@/components/ui/Card";
 import PostComments from "@/components/board/PostComments";
@@ -97,6 +98,7 @@ export default function PostGrid({
   }, [sessionId]);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyFailedId, setCopyFailedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [openComments, setOpenComments] = useState<Set<string>>(new Set());
@@ -140,9 +142,15 @@ export default function PostGrid({
   }
 
   async function handleCopy(text: string, postId: string) {
-    await navigator.clipboard.writeText(text);
-    setCopiedId(postId);
-    setTimeout(() => setCopiedId(null), 1500);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFailedId(null);
+      setCopiedId(postId);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // 클립보드 권한 거부 등 — 실패를 알리고 다시 누를 수 있게 둔다
+      setCopyFailedId(postId);
+    }
   }
 
   async function handleToggleReaction(post: Post, key: (typeof REACTIONS)[number]["key"]) {
@@ -245,11 +253,7 @@ export default function PostGrid({
               className="text-sm text-signal-blue hover:underline break-all"
             >
               📎 {post.fileMeta?.name || "파일"}
-              {typeof post.fileMeta?.size === "number" && post.fileMeta.size > 0 && (
-                <span className="text-xs text-ash-text ml-1">
-                  ({(post.fileMeta.size / 1024 / 1024).toFixed(1)}MB)
-                </span>
-              )}
+              <span className="text-xs text-ash-text ml-1">({formatBytes(post.fileMeta?.size)})</span>
             </a>
             {post.content && <p className="text-sm text-obsidian mt-1">{post.content}</p>}
           </div>
@@ -284,7 +288,7 @@ export default function PostGrid({
   }
 
   return (
-    <div className="p-4 columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3">
+    <div data-testid="post-board" className="p-4 columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3">
       {filteredPosts.map((post) => {
         const isOwn = !!currentUserId && post.authorId === currentUserId;
         const editable = isOwn && !locked && canEditWindow(post.createdAt);
@@ -301,7 +305,7 @@ export default function PostGrid({
             {post.pinned && (
               <span className="absolute -top-2 -right-2 inline-flex items-center gap-1 bg-buttercup text-ochre text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-[--shadow-card]">
                 <RiPushpinFill size={10} />
-                Pinned
+                고정됨
               </span>
             )}
             <div className="flex items-center justify-between mb-2 gap-1">
@@ -311,7 +315,7 @@ export default function PostGrid({
                     className="inline-flex items-center gap-0.5 bg-graphite text-chalk-card text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
                     title="질문"
                   >
-                    <RiQuestionLine size={9} />Q
+                    <RiQuestionLine size={9} aria-hidden />질문
                   </span>
                 )}
                 {post.authorName}
@@ -331,7 +335,8 @@ export default function PostGrid({
                 {isAdmin && post.id && (
                   <button
                     onClick={() => handleTogglePin(post)}
-                    title={post.pinned ? "Pin 해제" : "Pin"}
+                    title={post.pinned ? "고정 해제" : "고정"}
+                    aria-label={post.pinned ? "고정 해제" : "고정"}
                     className="text-slate hover:text-ochre cursor-pointer"
                   >
                     {post.pinned ? <RiPushpinFill size={13} /> : <RiPushpin2Line size={13} />}
@@ -415,9 +420,7 @@ export default function PostGrid({
 
             <div className="flex items-center justify-between mt-2">
               <p className="text-[10px] text-slate">
-                {post.createdAt?.toDate?.()
-                  ? post.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-                  : ""}
+                {formatTime(post.createdAt)}
                 {post.editedAt && <span className="ml-1 italic">· 수정됨</span>}
               </p>
               <div className="flex items-center gap-2">
@@ -437,13 +440,19 @@ export default function PostGrid({
                     )}
                   </button>
                 )}
-                <button
-                  onClick={() => handleCopy(post.content, post.id!)}
-                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
-                >
-                  <RiFileCopyLine size={11} />
-                  {copiedId === post.id ? "Copied!" : "Copy"}
-                </button>
+                {post.content?.trim() && (
+                  <button
+                    onClick={() => handleCopy(post.content, post.id!)}
+                    className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+                  >
+                    <RiFileCopyLine size={11} />
+                    {copiedId === post.id
+                      ? "복사됨"
+                      : copyFailedId === post.id
+                        ? "복사 실패 — 다시 시도"
+                        : "복사"}
+                  </button>
+                )}
               </div>
             </div>
             {post.id && openComments.has(post.id) && (

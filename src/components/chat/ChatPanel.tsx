@@ -16,6 +16,7 @@ import {
 } from "@/lib/firestore";
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { isSafeExternalUrl } from "@/lib/url-safe";
+import { formatBytes, formatTime } from "@/lib/format";
 import {
   RiSendPlaneFill,
   RiAttachmentLine,
@@ -335,6 +336,7 @@ export default function ChatPanel({
 
   return (
     <div
+      data-testid="chat-panel"
       className="flex flex-col h-full border-l border-chalk bg-white"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
@@ -366,7 +368,7 @@ export default function ChatPanel({
               >
                 <span className="inline-flex items-center gap-1">
                   <RiEyeOffLine size={12} />
-                  관리자가 메시지를 가렸습니다
+                  관리자가 숨긴 메시지입니다
                 </span>
                 {isAdmin && (
                   <div className="mt-1 text-[10px] text-slate-text not-italic">
@@ -428,7 +430,7 @@ export default function ChatPanel({
                     rel="noopener noreferrer"
                     className="underline"
                   >
-                    📎 {msg.fileMeta?.name || "파일"} ({((msg.fileMeta?.size || 0) / 1024 / 1024).toFixed(1)}MB)
+                    📎 {msg.fileMeta?.name || "파일"} ({formatBytes(msg.fileMeta?.size)})
                   </a>
                 )}
                 {msg.type === "text" && renderMessageContent(msg)}
@@ -437,28 +439,32 @@ export default function ChatPanel({
             )}
             <div className={`flex items-center gap-2 mt-0.5 ${msg.authorId === authorId ? "justify-end" : ""}`}>
               <p className="text-[10px] text-slate">
-                {msg.createdAt?.toDate?.()
-                  ? msg.createdAt.toDate().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-                  : ""}
+                {formatTime(msg.createdAt)}
                 {msg.editedAt && <span className="ml-1 italic">· 수정됨</span>}
               </p>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(msg.content);
-                  setCopiedId(msg.id!);
-                  setTimeout(() => setCopiedId(null), 1500);
-                }}
-                className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
-              >
-                <RiFileCopyLine size={10} />
-                {copiedId === msg.id ? "Copied!" : "Copy"}
-              </button>
+              {!msg.hidden && msg.content && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(msg.content);
+                      setCopiedId(msg.id!);
+                      setTimeout(() => setCopiedId(null), 1500);
+                    } catch {
+                      setCopiedId(`failed:${msg.id}`);
+                    }
+                  }}
+                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+                >
+                  <RiFileCopyLine size={10} />
+                  {copiedId === msg.id ? "복사됨" : copiedId === `failed:${msg.id}` ? "복사 실패 — 다시 시도" : "복사"}
+                </button>
+              )}
               <button
                 onClick={() => handleReply(msg)}
                 className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
               >
                 <RiReplyLine size={10} />
-                Reply
+                답글
               </button>
               {msg.authorId === authorId &&
                 msg.type === "text" &&
@@ -468,21 +474,21 @@ export default function ChatPanel({
                 editingId !== msg.id && (
                   <button
                     onClick={() => startEdit(msg)}
-                    title="편집 (5분 이내)"
+                    title="수정 (작성 후 5분 이내)"
                     className="flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer transition-colors"
                   >
                     <RiEditLine size={10} />
-                    Edit
+                    수정
                   </button>
                 )}
               {isAdmin && (
                 <button
                   onClick={() => handleToggleHide(msg)}
                   className="flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer transition-colors"
-                  title={msg.hidden ? "다시 보이기" : "메시지 가리기"}
+                  title={msg.hidden ? "다시 보이기" : "메시지 숨기기"}
                 >
                   {msg.hidden ? <RiEyeLine size={10} /> : <RiEyeOffLine size={10} />}
-                  {msg.hidden ? "Unhide" : "Hide"}
+                  {msg.hidden ? "다시 보이기" : "숨기기"}
                 </button>
               )}
               {isAdmin && msg.authorId !== authorId && (
@@ -492,7 +498,7 @@ export default function ChatPanel({
                   title={`${msg.authorName} 차단`}
                 >
                   <RiUserForbidLine size={10} />
-                  Block
+                  차단
                 </button>
               )}
             </div>

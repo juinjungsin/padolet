@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { METRICS } from "@/lib/metrics";
 import {
   RiUserLine,
   RiFileTextLine,
@@ -61,8 +62,12 @@ export default function Nav({
 
       <div className="ml-auto flex items-center gap-4">
         {typeof participantCount === "number" && (
-          <div className="flex items-center gap-1 text-sm text-slate-text">
-            <RiUserLine size={14} />
+          <div
+            className="flex items-center gap-1 text-sm text-slate-text"
+            title={`${METRICS.cumulative.label} ${participantCount}명 — ${METRICS.cumulative.help}`}
+            aria-label={`${METRICS.cumulative.label} ${participantCount}명`}
+          >
+            <RiUserLine size={14} aria-hidden />
             <span>{participantCount}</span>
           </div>
         )}
@@ -107,7 +112,7 @@ export default function Nav({
             className="flex items-center gap-1 text-xs text-slate-text hover:text-graphite transition-colors"
           >
             <RiFileTextLine size={14} />
-            <span className="hidden sm:inline">레포트</span>
+            <span className="hidden sm:inline">보고서</span>
           </Link>
         )}
 

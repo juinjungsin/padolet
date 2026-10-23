@@ -153,7 +153,7 @@ export default function ProjectorPage() {
               <RiTeamLine size={22} />
               {participantCount}
             </div>
-            <p className="text-xs text-slate-text uppercase tracking-wider">참여자</p>
+            <p className="text-xs text-slate-text uppercase tracking-wider">누적 입장</p>
           </div>
           {qrUrl && (
             // eslint-disable-next-line @next/next/no-img-element

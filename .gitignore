@@ -41,3 +41,12 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# test / emulator artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log

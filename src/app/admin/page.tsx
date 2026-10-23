@@ -18,6 +18,7 @@ import {
   getSessionByCode,
   getSessionsByAdmin,
   getAllSessions,
+  getParticipantCount,
   getRole,
   isSuperAdmin,
   endSession,
@@ -27,12 +28,35 @@ import {
   Session,
   SUPER_ADMIN_EMAIL,
 } from "@/lib/firestore";
-import { auth as firebaseAuth } from "@/lib/firebase";
+import { auth as firebaseAuth, USE_EMULATOR } from "@/lib/firebase";
 import { generateSessionCode } from "@/lib/session-code";
+import { METRICS } from "@/lib/metrics";
 import QRCode from "qrcode";
 import { RiLinkM, RiCheckLine } from "react-icons/ri";
 
 const DOMAIN = "padolet.vercel.app";
+
+// 로컬 에뮬레이터 전용 로그인 (운영에서는 렌더되지 않음)
+function EmulatorLoginForm() {
+  const [email, setEmail] = useState("jongbin@gmail.com");
+  return (
+    <form
+      className="mt-6 pt-6 border-t border-silver-mist flex flex-col gap-2 text-left"
+      onSubmit={(e) => {
+        e.preventDefault();
+        signIn("emulator", { email, callbackUrl: "/admin" });
+      }}
+    >
+      <label htmlFor="emu-email" className="text-xs text-slate-text">
+        에뮬레이터 로그인 (로컬 검증 전용)
+      </label>
+      <Input id="emu-email" variant="contained" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <Button type="submit" variant="outlined">
+        에뮬레이터로 로그인
+      </Button>
+    </form>
+  );
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -47,6 +71,7 @@ export default function AdminPage() {
   const [deleteTarget, setDeleteTarget] = useState<(Session & { id: string }) | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
+  const [participantCounts, setParticipantCounts] = useState<Record<string, number | "error">>({});
   // Firestore Rules는 Firebase Auth uid로 세션 소유자를 판별하므로 NextAuth의 sub 대신 이 값을 사용.
   const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
 
@@ -87,15 +112,28 @@ export default function AdminPage() {
   }, [firebaseUid, role]);
 
   async function loadSessions(currentRole: Role, currentUid: string) {
+    let list: (Session & { id: string })[] = [];
     if (currentRole === "super") {
-      const list = await getAllSessions();
-      setSessions(list);
+      list = await getAllSessions();
     } else if (currentRole === "admin") {
-      const list = await getSessionsByAdmin(currentUid);
-      setSessions(list);
-    } else {
-      setSessions([]);
+      list = await getSessionsByAdmin(currentUid);
     }
+    setSessions(list);
+    loadParticipantCounts(list);
+  }
+
+  // 누적 입장 인원 — 세션 문서의 participantCount(갱신 중단된 값) 대신 참여자 문서 수를 집계
+  async function loadParticipantCounts(list: (Session & { id: string })[]) {
+    const entries = await Promise.all(
+      list.map(async (s) => {
+        try {
+          return [s.id, await getParticipantCount(s.id)] as const;
+        } catch {
+          return [s.id, "error"] as const;
+        }
+      })
+    );
+    setParticipantCounts(Object.fromEntries(entries));
   }
 
   async function reloadSessions() {
@@ -247,6 +285,7 @@ export default function AdminPage() {
             세션을 생성하고 관리하려면 Google 계정으로 로그인하세요.
           </p>
           <Button onClick={() => signIn("google")}>Google로 로그인</Button>
+          {USE_EMULATOR && <EmulatorLoginForm />}
         </Card>
       </div>
     );
@@ -267,7 +306,7 @@ export default function AdminPage() {
             <span className="font-semibold">{session.user?.email}</span>
           </p>
           <p className="text-sm text-slate-text mb-6">
-            이 계정은 padolet 관리자로 등록되어 있지 않습니다. 접근 권한이 필요하면 super_admin({SUPER_ADMIN_EMAIL})에게 문의하세요.
+            이 계정은 padolet 관리자로 등록되어 있지 않습니다. 접근 권한이 필요하면 최고 관리자({SUPER_ADMIN_EMAIL})에게 문의하세요.
           </p>
           <Button variant="outlined" onClick={() => signOut()}>
             로그아웃
@@ -296,7 +335,7 @@ export default function AdminPage() {
             <p className="text-xs text-slate-text mt-1">
               {session.user?.name} ({session.user?.email})
               <span className="ml-2 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold bg-graphite text-chalk-card">
-                {isSuper ? "SUPER" : "ADMIN"}
+                {isSuper ? "최고 관리자" : "관리자"}
               </span>
               <button onClick={() => signOut()} className="ml-3 text-ash-text hover:text-graphite underline cursor-pointer">
                 로그아웃
@@ -345,9 +384,13 @@ export default function AdminPage() {
             const ownsSession = s.createdBy === firebaseUid;
             const status = getSessionStatus(s);
             const isEnded = status === "ended";
+            const count = participantCounts[s.id];
+            const countText =
+              count === undefined ? "집계 중" : count === "error" ? "확인 불가" : `${count}명`;
             return (
               <Card
                 key={s.id}
+                data-testid={`session-row-${s.id}`}
                 className={`p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                   isEnded ? "opacity-70" : ""
                 }`}
@@ -376,7 +419,10 @@ export default function AdminPage() {
                     )}
                   </p>
                   <p className="text-xs text-slate-text mt-1">
-                    코드: {s.code} · 참여자: {s.participantCount}명
+                    코드: {s.code} ·{" "}
+                    <span title={METRICS.cumulative.help}>
+                      {METRICS.cumulative.label} {countText}
+                    </span>
                   </p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -387,7 +433,7 @@ export default function AdminPage() {
                     보드 입장
                   </Button>
                   <Button variant="ghost" onClick={() => router.push(`/admin/report/${s.id}`)}>
-                    레포트
+                    보고서
                   </Button>
                   <Button variant="ghost" onClick={() => handleDuplicate(s)}>
                     복제
@@ -440,20 +486,21 @@ export default function AdminPage() {
               <span className="text-slate-text"> · {deleteTarget.code}</span>
             </p>
             <p className="text-sm text-slate-text mb-4">
-              포스트잇, 대화, 참여자 정보가 모두 영구 삭제됩니다. 복구할 수 없습니다.
+              포스트잇·댓글·대화·투표·참여자 기록이 모두 영구 삭제되며 복구할 수 없습니다. 업로드된
+              첨부파일 원본은 저장소에 남습니다.
             </p>
             <div className="bg-buttercup border border-ochre/20 rounded-lg p-3 mb-5">
               <p className="text-sm text-ochre font-semibold mb-1">
-                삭제 전 레포트를 다운받으시겠습니까?
+                삭제 전 보고서를 내려받으시겠습니까?
               </p>
               <p className="text-xs text-ochre/80">
-                필요하면 먼저 레포트 페이지로 이동해 MD/PDF로 보관하세요.
+                필요하면 먼저 보고서 화면으로 이동해 MD/PDF로 보관하세요.
               </p>
               <button
                 onClick={() => router.push(`/admin/report/${deleteTarget.id}`)}
                 className="mt-2 inline-flex items-center text-xs font-semibold text-ochre underline cursor-pointer hover:text-graphite"
               >
-                레포트 페이지 열기 →
+                보고서 열기 →
               </button>
             </div>
             <div className="flex justify-end gap-2">

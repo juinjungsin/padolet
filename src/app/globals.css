@@ -119,7 +119,7 @@ body {
   font-variation-settings: "SOFT" 50, "WONK" 0;
 }
 
-/* 인쇄 / PDF 내보내기 — 레포트 페이지에서 nav, footer, 액션바를 숨기고 카드만 출력 */
+/* 인쇄 / PDF 내보내기 — 보고서 화면에서 nav, footer, 액션바를 숨기고 카드만 출력 */
 @media print {
   body {
     background-color: #ffffff !important;

@@ -4,6 +4,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  getCountFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -102,6 +103,7 @@ export interface Session {
   code: string;
   createdBy: string;
   createdAt: Timestamp;
+  /** @deprecated 2026-07-08 이후 갱신되지 않음(참여자 쓰기 권한 없음). 표시에는 getParticipantCount() 사용 */
   participantCount: number;
   requireGoogleLogin: boolean;
   bannedWords?: string[];
@@ -234,20 +236,40 @@ export async function updateSession(sessionId: string, data: Partial<Session>) {
   await updateDoc(doc(getDb(), "sessions", sessionId), data);
 }
 
-// 세션 + 하위 컬렉션(participants/posts/messages) 일괄 삭제
+// Firestore writeBatch는 최대 500 ops — 안전하게 400씩 분할 삭제
+async function deleteDocsInBatches(docs: QueryDocumentSnapshot<DocumentData>[]) {
+  const db = getDb();
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+/**
+ * 세션 + 하위 데이터 일괄 삭제 (복구 불가).
+ * 하위 컬렉션의 하위(포스트 댓글, 투표 응답)까지 먼저 지운 뒤 상위를 지운다.
+ * Storage의 첨부파일 원본은 규칙상 삭제하지 않는다.
+ */
 export async function deleteSession(sessionId: string) {
   const db = getDb();
-  const subcollections = ["participants", "posts", "messages"];
 
-  for (const sub of subcollections) {
+  const postsSnap = await getDocs(collection(db, "sessions", sessionId, "posts"));
+  for (const post of postsSnap.docs) {
+    const commentsSnap = await getDocs(collection(post.ref, "comments"));
+    await deleteDocsInBatches(commentsSnap.docs);
+  }
+  const pollsSnap = await getDocs(collection(db, "sessions", sessionId, "polls"));
+  for (const poll of pollsSnap.docs) {
+    const votesSnap = await getDocs(collection(poll.ref, "votes"));
+    await deleteDocsInBatches(votesSnap.docs);
+  }
+
+  await deleteDocsInBatches(postsSnap.docs);
+  await deleteDocsInBatches(pollsSnap.docs);
+  for (const sub of ["participants", "messages"]) {
     const snap = await getDocs(collection(db, "sessions", sessionId, sub));
-    // Firestore writeBatch는 최대 500 ops — 안전하게 400씩 분할
-    const docs = snap.docs;
-    for (let i = 0; i < docs.length; i += 400) {
-      const batch = writeBatch(db);
-      docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
-      await batch.commit();
-    }
+    await deleteDocsInBatches(snap.docs);
   }
 
   await deleteDoc(doc(db, "sessions", sessionId));
@@ -442,8 +464,9 @@ export async function dismissAnnouncement(sessionId: string) {
 /**
  * 참여자 등록.
  * - 문서 ID는 Firebase Auth UID로 고정 → Firestore Rules에서 참여 여부 검증에 사용.
- * - 이미 존재하는 uid로 재입장 시 participantCount 중복 증가 방지 (isNew 판별).
  * - setDoc merge: true 로 name/isAnonymous 등 최신값 반영, joinedAt은 최초 1회만 기록.
+ * - 세션 문서의 participantCount는 더 이상 갱신하지 않는다. 참여자는 세션 문서를 수정할 수 없어
+ *   (Rules) 증가가 거부되며 입장 실패로 이어졌다. 인원은 getParticipantCount()로 센다.
  */
 export async function addParticipant(
   sessionId: string,
@@ -452,24 +475,23 @@ export async function addParticipant(
 ) {
   const participantRef = doc(getDb(), "sessions", sessionId, "participants", uid);
   const existing = await getDoc(participantRef);
-  const isNew = !existing.exists();
 
   const payload: Record<string, unknown> = {
     ...data,
     lastSeenAt: serverTimestamp(),
   };
-  if (isNew) {
+  if (!existing.exists()) {
     payload.joinedAt = serverTimestamp();
   }
 
   await setDoc(participantRef, payload, { merge: true });
-
-  if (isNew) {
-    await updateDoc(doc(getDb(), "sessions", sessionId), {
-      participantCount: increment(1),
-    });
-  }
   return uid;
+}
+
+/** 누적 입장 인원 = participants 문서 수 (보드·보고서의 목록 길이와 같은 기준) */
+export async function getParticipantCount(sessionId: string): Promise<number> {
+  const snap = await getCountFromServer(collection(getDb(), "sessions", sessionId, "participants"));
+  return snap.data().count;
 }
 
 export function onParticipants(sessionId: string, callback: (participants: Participant[]) => void) {
@@ -565,6 +587,13 @@ export async function deleteComment(sessionId: string, postId: string, commentId
   batch.delete(commentRef);
   batch.update(postRef, { commentCount: increment(-1) });
   await batch.commit();
+}
+
+export async function getComments(sessionId: string, postId: string): Promise<Comment[]> {
+  const snap = await getDocs(
+    query(collection(getDb(), "sessions", sessionId, "posts", postId, "comments"), orderBy("createdAt", "asc"))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Comment);
 }
 
 export function onComments(

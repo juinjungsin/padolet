@@ -1,10 +1,25 @@
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, UploadMetadata } from "firebase/storage";
+import {
+  getStorage,
+  connectStorageEmulator,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  FirebaseStorage,
+  UploadMetadata,
+} from "firebase/storage";
 import { getApps } from "firebase/app";
+import { USE_EMULATOR, EMULATOR_HOST, EMULATOR_PORTS } from "./firebase";
+import { formatBytes } from "./format";
+
+let storageInstance: FirebaseStorage | null = null;
 
 function getStorageInstance() {
+  if (storageInstance) return storageInstance;
   const app = getApps()[0];
   if (!app) throw new Error("Firebase 앱이 초기화되지 않았습니다.");
-  return getStorage(app);
+  storageInstance = getStorage(app);
+  if (USE_EMULATOR) connectStorageEmulator(storageInstance, EMULATOR_HOST, EMULATOR_PORTS.storage);
+  return storageInstance;
 }
 
 export interface UploadResult {
@@ -174,7 +189,7 @@ export function validateFiles(files: File[]): { valid: File[]; errors: string[] 
 
   const valid = limited.filter((f) => {
     if (f.size > MAX_FILE_SIZE) {
-      errors.push(`${f.name} — 50MB 초과 (${(f.size / 1024 / 1024).toFixed(1)}MB)`);
+      errors.push(`${f.name} — 50MB 초과 (${formatBytes(f.size)})`);
       return false;
     }
     const mime = resolveMime(f);

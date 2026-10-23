@@ -13,6 +13,7 @@ import {
   isParticipantOnline,
 } from "@/lib/firestore";
 import Modal from "@/components/ui/Modal";
+import { countActivityByAuthor, METRICS } from "@/lib/metrics";
 import { RiUserForbidLine, RiUserUnfollowLine, RiTeamLine } from "react-icons/ri";
 
 interface Props {
@@ -50,21 +51,8 @@ export default function ParticipantsPanel({
     };
   }, [open, sessionId]);
 
-  // 작성자별 활동량 집계
-  const stats = useMemo(() => {
-    const map = new Map<string, { postCount: number; msgCount: number }>();
-    posts.forEach((p) => {
-      const cur = map.get(p.authorName) || { postCount: 0, msgCount: 0 };
-      cur.postCount += 1;
-      map.set(p.authorName, cur);
-    });
-    messages.forEach((m) => {
-      const cur = map.get(m.authorName) || { postCount: 0, msgCount: 0 };
-      cur.msgCount += 1;
-      map.set(m.authorName, cur);
-    });
-    return map;
-  }, [posts, messages]);
+  // 작성자별 활동량 집계 — 참여 식별자 기준 (동명이인을 합치지 않음)
+  const stats = useMemo(() => countActivityByAuthor(posts, messages), [posts, messages]);
 
   const anonymousCount = participants.filter((p) => p.isAnonymous).length;
   const namedCount = participants.length - anonymousCount;
@@ -83,7 +71,7 @@ export default function ParticipantsPanel({
           style={{ fontWeight: 700, letterSpacing: "-0.6px" }}
         >
           <RiTeamLine size={20} />
-          참여자 ({participants.length})
+          참여자
         </h2>
         <button
           onClick={onClose}
@@ -95,9 +83,13 @@ export default function ParticipantsPanel({
       </div>
 
       <div className="px-6 py-3 border-b border-silver-mist text-xs text-slate-text flex gap-3 flex-wrap">
-        <span className="inline-flex items-center gap-1">
+        <span title={METRICS.cumulative.help} data-testid="metric-cumulative">
+          {METRICS.cumulative.label} {participants.length}명
+        </span>
+        <span>·</span>
+        <span className="inline-flex items-center gap-1" title={METRICS.recent.help}>
           <span className="w-1.5 h-1.5 rounded-full bg-sage inline-block" />
-          접속 중 {onlineCount}
+          {METRICS.recent.label} {onlineCount}명
         </span>
         <span>·</span>
         <span>실명 {namedCount}</span>
@@ -107,6 +99,9 @@ export default function ParticipantsPanel({
         <span>포스트잇 {posts.length}</span>
         <span>·</span>
         <span>대화 {messages.length}</span>
+        <p className="w-full text-[11px] text-slate-text leading-relaxed">
+          {METRICS.cumulative.label}: {METRICS.cumulative.help} {METRICS.recent.label}: {METRICS.recent.help}
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -114,7 +109,7 @@ export default function ParticipantsPanel({
           <p className="text-sm text-ash-text text-center py-8">아직 참여자가 없습니다.</p>
         )}
         {participants.map((p) => {
-          const s = stats.get(p.name) || { postCount: 0, msgCount: 0 };
+          const s = (p.id && stats.get(p.id)) || { postCount: 0, msgCount: 0 };
           const isBlocked = blockedNames.includes(p.name);
           const online = isParticipantOnline(p, now);
           return (
@@ -130,7 +125,7 @@ export default function ParticipantsPanel({
                     className={`w-1.5 h-1.5 rounded-full inline-block mr-1.5 shrink-0 ${
                       online ? "bg-sage" : "bg-silver-mist"
                     }`}
-                    title={online ? "접속 중" : "오프라인"}
+                    title={online ? "최근 활동 있음" : "최근 활동 없음"}
                   />
                   <span className="truncate">{p.name}</span>
                   {p.isAnonymous && (

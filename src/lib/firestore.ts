@@ -122,6 +122,23 @@ export interface Session {
   lastUsedAt?: Timestamp | null;
   /** 현재 실습 모듈 (세션당 하나, P1-01) */
   activeModuleId?: string | null;
+  /** 프로젝터 크게 보기 (P2-04) — spotlightPostId와 함께 기록 */
+  spotlight?: SpotlightState | null;
+}
+
+/** 프로젝터 크게 보기 대상. 작성자 이름은 기본 숨김, 강사가 켤 때만 (2026-10 정책) */
+export interface SpotlightState {
+  kind: "post" | "submission";
+  refId: string;
+  showName: boolean;
+  /** 제출물은 프로젝터에 보이는 내용만 복사 — 피드백·이력은 넣지 않고, 이름은 showName일 때만 */
+  snapshot?: {
+    moduleTitle: string;
+    version: number;
+    text: string;
+    files: { name: string; url: string; mimeType: string }[];
+    name?: string;
+  } | null;
 }
 
 export interface Participant {
@@ -682,8 +699,12 @@ export async function stopSessionTimer(sessionId: string) {
 
 // --- 스포트라이트 (프로젝터 확대 표시) ---
 
+/** 게시물(질문 포함) 크게 보기 — 이름은 숨긴 채로 시작 */
 export async function setSpotlightPost(sessionId: string, postId: string | null) {
-  await updateDoc(doc(getDb(), "sessions", sessionId), { spotlightPostId: postId });
+  await updateDoc(doc(getDb(), "sessions", sessionId), {
+    spotlightPostId: postId,
+    spotlight: postId ? { kind: "post", refId: postId, showName: false } : null,
+  });
 }
 
 // --- 보드 잠금 ---

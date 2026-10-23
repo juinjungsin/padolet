@@ -20,6 +20,8 @@ import {
 } from "@/lib/firestore";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import { formatBytes } from "@/lib/format";
+import { getPostKind, POST_KIND_LABEL } from "@/lib/post-kind";
+import { isQuestion, meTooCount, QUESTION_STATUS_LABEL, questionStatus } from "@/lib/question";
 import { RiPushpinFill, RiTeamLine, RiTimerFlashLine, RiBarChart2Line, RiFocus3Line } from "react-icons/ri";
 import QRCode from "qrcode";
 
@@ -96,10 +98,13 @@ export default function ProjectorPage() {
   const showTimer =
     timerActive && timerEndsAtMs !== null && now - timerEndsAtMs < 30_000;
 
-  // 스포트라이트 대상 포스트
-  const spotlightPost = session?.spotlightPostId
-    ? posts.find((p) => p.id === session.spotlightPostId) || null
-    : null;
+  // 크게 보기 대상 (P2-04) — 게시물은 원본을 실시간으로, 제출물은 강사가 고른 내용만 복사된 값으로
+  const spotlight = session?.spotlight ?? null;
+  const spotlightPostId = spotlight ? (spotlight.kind === "post" ? spotlight.refId : null) : session?.spotlightPostId ?? null;
+  const spotlightPost = spotlightPostId ? posts.find((p) => p.id === spotlightPostId) || null : null;
+  const submissionSnapshot = spotlight?.kind === "submission" ? spotlight.snapshot ?? null : null;
+  // 작성자 이름은 기본 숨김, 강사가 켰을 때만
+  const showName = !!spotlight?.showName;
 
   const pinnedPosts = posts.filter((p) => p.pinned);
   const otherPosts = posts.filter((p) => !p.pinned);
@@ -294,42 +299,82 @@ export default function ProjectorPage() {
       )}
 
       {/* 스포트라이트 오버레이 — 보드에서 admin이 지정한 포스트 확대 표시 */}
-      {spotlightPost && (
+      {(spotlightPost || submissionSnapshot) && (
         <div className="fixed inset-0 z-50 bg-graphite/80 backdrop-blur-sm flex items-center justify-center p-8">
-          <div className="max-w-3xl w-full bg-chalk-card rounded-2xl shadow-[--shadow-card] p-10">
-            <p className="text-xs text-slate-text uppercase tracking-wider mb-4 flex items-center gap-1.5">
-              <RiFocus3Line size={14} />
-              스포트라이트
-            </p>
-            {spotlightPost.type === "image" &&
-            spotlightPost.fileUrl &&
-            isSafeExternalUrl(spotlightPost.fileUrl) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={spotlightPost.fileUrl}
-                alt={spotlightPost.fileMeta?.name || "이미지"}
-                className="w-full max-h-[60vh] object-contain rounded-lg mb-4"
-              />
-            ) : null}
-            {spotlightPost.content && (
-              <p className="text-3xl md:text-4xl text-ink whitespace-pre-wrap leading-snug font-medium">
-                {spotlightPost.content}
-              </p>
-            )}
-            {spotlightPost.type === "file" && (
-              <p className="text-2xl text-ink">
-                📎 {spotlightPost.fileMeta?.name || "파일"}{" "}
-                <span className="text-lg text-slate-text">({formatBytes(spotlightPost.fileMeta?.size)})</span>
-              </p>
-            )}
-            <div className="flex items-center justify-between mt-6">
-              <p className="text-lg text-ochre">— {spotlightPost.authorName}</p>
-              {reactionTotal(spotlightPost.reactions) > 0 && (
-                <p className="text-base text-slate-text">
-                  공감 {reactionTotal(spotlightPost.reactions)}
-                </p>
+          <div data-testid="projector-spotlight" className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-chalk-card rounded-2xl shadow-[--shadow-card] p-10">
+            <p className="text-sm text-slate-text mb-4 flex flex-wrap items-center gap-2">
+              <RiFocus3Line size={16} aria-hidden />
+              {submissionSnapshot
+                ? `제출물 · ${submissionSnapshot.moduleTitle}`
+                : spotlightPost && getPostKind(spotlightPost) !== "general"
+                  ? POST_KIND_LABEL[getPostKind(spotlightPost)]
+                  : "크게 보기"}
+              {spotlightPost && isQuestion(spotlightPost) && (
+                <span className="px-2 py-0.5 rounded-full bg-buttercup text-ochre font-semibold">
+                  {QUESTION_STATUS_LABEL[questionStatus(spotlightPost)]}
+                </span>
               )}
-            </div>
+            </p>
+
+            {spotlightPost && (
+              <>
+                {spotlightPost.title && <h2 className="text-3xl font-bold text-graphite mb-3">{spotlightPost.title}</h2>}
+                {spotlightPost.type === "image" && spotlightPost.fileUrl && isSafeExternalUrl(spotlightPost.fileUrl) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={spotlightPost.fileUrl}
+                    alt={spotlightPost.fileMeta?.name || "이미지"}
+                    className="w-full max-h-[60vh] object-contain rounded-lg mb-4"
+                  />
+                ) : null}
+                {spotlightPost.content && (
+                  <p className="text-3xl md:text-4xl text-ink whitespace-pre-wrap leading-snug font-medium">
+                    {spotlightPost.content}
+                  </p>
+                )}
+                {spotlightPost.type === "file" && (
+                  <p className="text-2xl text-ink">
+                    📎 {spotlightPost.fileMeta?.name || "파일"}{" "}
+                    <span className="text-lg text-slate-text">({formatBytes(spotlightPost.fileMeta?.size)})</span>
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-6 text-lg">
+                  {/* 작성자는 강사가 이름 표시를 켰을 때만 (기본 숨김) */}
+                  <p className="text-ochre">{showName ? `— ${spotlightPost.originalAuthorName ?? spotlightPost.authorName}` : ""}</p>
+                  <p className="text-base text-slate-text">
+                    {isQuestion(spotlightPost)
+                      ? `저도 궁금해요 ${meTooCount(spotlightPost)}`
+                      : reactionTotal(spotlightPost.reactions) > 0
+                        ? `공감 ${reactionTotal(spotlightPost.reactions)}`
+                        : ""}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {submissionSnapshot && (
+              <>
+                {submissionSnapshot.text && (
+                  <p className="text-2xl md:text-3xl text-ink whitespace-pre-wrap leading-snug font-medium mb-4">{submissionSnapshot.text}</p>
+                )}
+                <div className="grid gap-3">
+                  {submissionSnapshot.files.map((f) =>
+                    f.mimeType.startsWith("image/") && isSafeExternalUrl(f.url) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={f.url} src={f.url} alt={f.name} className="w-full max-h-[55vh] object-contain rounded-lg" />
+                    ) : (
+                      <p key={f.url} className="text-xl text-ink">
+                        📎 {f.name}
+                      </p>
+                    )
+                  )}
+                </div>
+                <p className="mt-6 text-lg text-ochre">
+                  {showName && submissionSnapshot.name ? `— ${submissionSnapshot.name}` : ""}
+                  <span className="ml-2 text-base text-slate-text">{submissionSnapshot.version}번째 제출</span>
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

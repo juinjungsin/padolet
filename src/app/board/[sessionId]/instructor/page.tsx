@@ -9,6 +9,7 @@ import { auth as firebaseAuth } from "@/lib/firebase";
 import Nav from "@/components/layout/Nav";
 import Card from "@/components/ui/Card";
 import ConnectionBanner from "@/components/ui/ConnectionBanner";
+import SpotlightControl from "@/components/board/SpotlightControl";
 import { HelpRequestList, ProgressList } from "@/components/board/InstructorPanel";
 import { InstructorSubmissions } from "@/components/board/SubmissionsView";
 import { isSuperAdmin, onParticipants, onPosts, onSession, Participant, Post, QuestionStatus, Session } from "@/lib/firestore";
@@ -120,6 +121,7 @@ export default function InstructorPage() {
     <div className="flex flex-col min-h-screen">
       <Nav wide sessionTitle={session.title} sessionCode={session.code} participantCount={participants.length} isAdmin />
       <ConnectionBanner />
+      <SpotlightControl sessionId={sessionId} session={session} posts={posts} />
       <main className="w-full max-w-[1440px] mx-auto px-4 md:px-6 py-6 space-y-6" data-testid="instructor-screen">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl md:text-3xl font-bold text-graphite mr-auto">강사 진행 화면</h1>

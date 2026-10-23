@@ -16,7 +16,14 @@ import {
   SubmissionVersion,
   summarizeSubmissions,
 } from "@/lib/submission";
-import { giveFeedback, onModuleSubmissions, onMySubmission, onSubmissionVersions, submitWork } from "@/lib/classroom";
+import {
+  giveFeedback,
+  onModuleSubmissions,
+  onMySubmission,
+  onSubmissionVersions,
+  setSubmissionSpotlight,
+  submitWork,
+} from "@/lib/classroom";
 import { uploadFile, validateFiles } from "@/lib/storage";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { isSafeExternalUrl } from "@/lib/url-safe";
@@ -30,6 +37,7 @@ import {
   RiExternalLinkLine,
   RiInboxArchiveLine,
   RiMessage2Line,
+  RiFocus3Line,
 } from "react-icons/ri";
 
 interface SubmissionsViewProps {
@@ -468,6 +476,17 @@ export function InstructorSubmissions({
                 {open && s && (
                   <div className="px-3 pb-3 space-y-3">
                     <SubmissionCard sub={s} moduleTitle={module.title} />
+                    <button
+                      onClick={() =>
+                        setSubmissionSpotlight(sessionId, s as Submission & { id: string }, module.title).catch(() =>
+                          alert("프로젝터에 띄우지 못했습니다.")
+                        )
+                      }
+                      className="touch-target inline-flex items-center gap-1 h-8 px-3 rounded-full border border-silver-mist text-sm font-semibold text-ink hover:border-graphite cursor-pointer"
+                    >
+                      <RiFocus3Line size={14} aria-hidden />
+                      프로젝터에 크게 보기 (이름 숨김)
+                    </button>
                     <FeedbackForm sessionId={sessionId} sub={s as Submission & { id: string }} adminUid={adminUid} />
                     <details>
                       <summary className="cursor-pointer text-sm font-semibold text-blueprint">제출 이력 ({s.version}회)</summary>

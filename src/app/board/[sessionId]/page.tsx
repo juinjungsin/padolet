@@ -14,6 +14,7 @@ import type { PostFilter, PostSortMode } from "@/lib/post-kind";
 import PostInput, { PostInputHandle } from "@/components/board/PostInput";
 import QuestionsList, { QuestionViewState } from "@/components/board/QuestionsList";
 import SubmissionsView from "@/components/board/SubmissionsView";
+import SpotlightControl from "@/components/board/SpotlightControl";
 import GuideBanner from "@/components/board/GuideBanner";
 import ModuleEditorModal from "@/components/board/ModuleEditorModal";
 import { InstructorPanelModal, InstructorSummary } from "@/components/board/InstructorPanel";
@@ -437,6 +438,9 @@ export default function BoardPage() {
 
       {/* 세션 동기화 타이머 배너 (모든 참여자 공통) */}
       <SessionTimerBanner timer={session?.timer} isAdmin={isAdmin} sessionId={sessionId} />
+
+      {/* 프로젝터 크게 보기 제어 (강사) */}
+      {isAdmin && session && <SpotlightControl sessionId={sessionId} session={session} posts={posts} />}
 
       {/* 1024px 이상: 보드 + 대화 나란히 / 그보다 좁으면 하단 탭으로 전환 (한 번만 렌더) */}
       <div className="flex-1 min-h-0 flex">

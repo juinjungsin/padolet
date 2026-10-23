@@ -6,6 +6,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -19,7 +20,7 @@ import {
 } from "firebase/firestore";
 import { db as getDb } from "./firebase";
 import { createSession } from "./firestore";
-import type { Message, Post, QuestionStatus, Session } from "./firestore";
+import type { Message, Post, QuestionStatus, Session, SpotlightState } from "./firestore";
 import { planTemplateCopy, TemplateOptions } from "./template";
 import { HelpRequest, memberDocId, Module, Progress, ProgressStatus } from "./practice";
 import type { Submission, SubmissionFile, SubmissionVersion } from "./submission";
@@ -230,6 +231,46 @@ export async function giveFeedback(
     feedbackAt: serverTimestamp(),
   });
   await batch.commit();
+}
+
+// ---------- 프로젝터 크게 보기 (P2-04) ----------
+
+/** 제출물 크게 보기 — 보이는 내용만 세션 문서에 복사(이름 제외), 게시물 스포트라이트는 해제 */
+export async function setSubmissionSpotlight(sid: string, sub: Submission & { id: string }, moduleTitle: string) {
+  await updateDoc(doc(getDb(), "sessions", sid), {
+    spotlightPostId: null,
+    spotlight: {
+      kind: "submission",
+      refId: sub.id,
+      showName: false,
+      snapshot: {
+        moduleTitle,
+        version: sub.version,
+        text: sub.text ?? "",
+        files: (sub.files ?? []).map((f) => ({ name: f.name, url: f.url, mimeType: f.mimeType })),
+      },
+    },
+  });
+}
+
+/** 이름 표시 켜기·끄기 — 제출물은 켤 때만 제출자 이름을 복사하고 끄면 지운다 */
+export async function setSpotlightShowName(sid: string, spotlight: SpotlightState, show: boolean) {
+  const next: SpotlightState = { ...spotlight, showName: show };
+  if (spotlight.kind === "submission" && spotlight.snapshot) {
+    const snapshot = { ...spotlight.snapshot };
+    delete snapshot.name;
+    if (show) {
+      const sub = await getDoc(doc(getDb(), "sessions", sid, "submissions", spotlight.refId));
+      const name = (sub.data() as Submission | undefined)?.name;
+      if (name) snapshot.name = name;
+    }
+    next.snapshot = snapshot;
+  }
+  await updateDoc(doc(getDb(), "sessions", sid), { spotlight: next });
+}
+
+export async function clearSpotlight(sid: string) {
+  await updateDoc(doc(getDb(), "sessions", sid), { spotlightPostId: null, spotlight: null });
 }
 
 // ---------- 세션 템플릿 복제 (P2-02) ----------

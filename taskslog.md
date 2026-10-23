@@ -462,3 +462,16 @@ Phase 17 — P2-04 프로젝터 크게 보기 개선 (2026-10-23, 미배포)
   세션 문서는 공개 읽기이므로 제출물 이름은 강사가 이름 표시를 켤 때만 세션 문서에 복사한다
   규칙 변경 없음 (세션 소유자 수정 규칙 그대로). 이전 데이터(spotlightPostId만 있음)도 게시물 크게 보기로 표시
   검증: E2E 4건(질문 크게 보기·이름 토글·제출물 크게 보기·해제), 스크린샷 확인
+
+Phase 18 — P2 운영 배포 (2026-10-23)
+
+  사용자 승인 후 배포
+    1. Firestore 규칙 (submissions 추가) — firebase deploy --only firestore:rules --project jblet-3e6c3
+       Storage 규칙·인덱스는 변경 없음 (제출 파일은 보드 첨부와 같은 경로·검사)
+    2. feature/p2 → main fast-forward (8469b21..6b9d541) push → Vercel 자동 배포
+    3. 태그 release-20261023-p2
+  배포 확인: 운영 /board/{id}/instructor 경로 응답 200 (없는 경로는 404)
+  배포 전 검증: 단위 76 · 규칙 33 · E2E 63 통과, tsc·build 통과, ESLint 기존 7건 외 신규 없음
+  되돌리기: 앱은 release-20261023으로, 규칙도 같은 태그의 firestore.rules로 재배포.
+            새 submissions 데이터는 이전 앱에서 쓰이지 않음 (이전 규칙은 기본 거부)
+  운영 변화: 프로젝터 크게 보기에서 작성자 이름이 기본 숨김 (강사가 이름 표시를 켜야 보임)

@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# padolet — 교육용 실시간 커뮤니케이션 보드
 
-## Getting Started
+운영: https://padolet.vercel.app · Next.js 16 + Firebase(Firestore·Auth·Storage, 프로젝트 `jblet-3e6c3`) · Vercel 배포
 
-First, run the development server:
+작업 이력과 결정 사항은 [`taskslog.md`](taskslog.md)에 Phase별로 기록합니다.
+
+## 화면 구성
+
+| 사용자 | 화면 | 주요 기능 |
+|---|---|---|
+| 교육생 | `/join` → `/board/{id}` | 현재 실습 안내(진행 중·실습 완료·도움 필요·질문하기), 보드/자료/질문 보기, 대화, 투표 |
+| 강사 (세션 소유자) | 보드 + `강사 도구` 메뉴 | 진행 요약(도움 요청·미답변 질문·완료 인원), 실습 안내 편집, 질문 상태 변경, 타이머·프로젝터·보고서·모더레이션·잠금 |
+| 관리자 | `/admin` | 세션 검색·상태 필터·정렬, 교육일, 보드 열기·보고서, 더보기(QR·정보 수정·복제·종료·보관·삭제) |
+| 최고 관리자 | `/admin/settings` | 관리자 권한 관리 |
+
+## 강사 운영 방법 (요약)
+
+1. **실습 안내** — 보드 상단 `실습 안내 만들기/편집`에서 모듈명·실습 제목·설명·자료 링크·보드 자료·마감·제출 링크를 입력하고 `현재 실습으로 지정`. 교육생 화면 맨 위에 바로 고정됩니다.
+2. **진행 확인** — 보드 상단 `진행 요약`의 완료·진행 중·응답 없음, 도움 요청 수를 확인하고 눌러서 요청자별 `확인`·`처리 완료`. 처리 완료는 교육생의 실습 완료 여부를 바꾸지 않습니다.
+3. **질문** — `질문` 탭(미답변 수 배지)에서 상태를 접수→답변 중→해결로 바꾸고, 해결한 질문은 다시 접수로 열 수 있습니다. 답변은 댓글로 답니다. 대화 메시지는 메시지 메뉴(⋯)의 `질문으로 등록`으로 옮길 수 있습니다(원본 유지).
+4. **자료** — 유형을 `자료`·`프롬프트`로 올리면 `자료` 탭에 모입니다. 공지는 강사만 올릴 수 있습니다.
+5. **보고서** — `강사 도구 > 보고서`. 외부에 공유할 때는 `참여자 명단`·`첨부 다운로드 링크`를 끄고 내보내세요(링크는 주소를 아는 누구나 열 수 있음).
+
+지표 기준: **누적 입장** = 세션에 입장한 브라우저 수(강사 포함, 같은 브라우저 재입장은 1명). **최근 활동** = 약 3분 안에 보드를 띄워 둔 인원. 교육생 식별은 브라우저 익명 계정이라 다른 기기·시크릿 창은 새 참여자로 집계됩니다.
+
+## 로컬 검증 (운영 Firebase에 접속하지 않음)
+
+필요: Node 20.9+, Java 21 (`JAVA_HOME` 또는 `~/tools/jdk-*`를 자동으로 찾음)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run emulators        # Auth·Firestore·Storage 에뮬레이터 (demo-padolet)
+npm run seed             # 가상 데이터 — 세션 코드 TEST / EMPT / ENDD
+npm run dev:emulator     # http://localhost:3100 (관리자 로그인 화면에 '에뮬레이터로 로그인')
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+```bash
+npm test                 # 단위 테스트 (Vitest)
+npm run test:rules       # 보안 규칙 테스트 (에뮬레이터 자동 기동)
+npm run test:e2e         # E2E (Playwright — 에뮬레이터·개발 서버 자동 기동)
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`PADOLET_EMULATOR_OFFSET=1000`처럼 지정하면 모든 포트를 옮겨 두 벌을 동시에 띄울 수 있습니다.
+에뮬레이터 로그인은 `NEXT_PUBLIC_USE_EMULATOR=1` + 개발 서버에서만 등록되며 운영 빌드에는 없습니다.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 배포
 
-## Learn More
+1. 보안 규칙을 바꿨다면 **규칙 먼저**: `npx firebase-tools deploy --only firestore:rules,storage --project jblet-3e6c3`
+2. 앱: `main`에 push → Vercel 자동 배포
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+반대 순서로 배포하면 새 기능의 쓰기가 규칙에 막힐 수 있습니다.

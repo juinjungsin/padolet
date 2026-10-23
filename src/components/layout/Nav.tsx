@@ -17,6 +17,7 @@ import {
   RiLockUnlockLine,
   RiToolsLine,
   RiArrowDownSLine,
+  RiDashboardLine,
 } from "react-icons/ri";
 
 interface NavProps {
@@ -57,6 +58,13 @@ export default function Nav({
         ...(onOpenTimer
           ? [{ key: "timer", label: "타이머", icon: <RiTimerFlashLine size={16} />, onSelect: onOpenTimer }]
           : []),
+        {
+          key: "instructor",
+          label: "강사 진행 화면 (새 창)",
+          icon: <RiDashboardLine size={16} />,
+          href: `/board/${sessionId}/instructor`,
+          external: true,
+        },
         {
           key: "projector",
           label: "프로젝터 화면 (새 창)",

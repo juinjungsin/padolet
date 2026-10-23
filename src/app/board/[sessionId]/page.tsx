@@ -447,6 +447,7 @@ export default function BoardPage() {
         >
           {isAdmin && (
             <InstructorSummary
+              sessionId={sessionId}
               helpCount={pendingHelp(helpRequests).length}
               unansweredCount={unansweredCount}
               summary={progressSummary}

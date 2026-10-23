@@ -29,7 +29,11 @@ import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { METRICS } from "@/lib/metrics";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 
-type LoadState = { status: "loading" } | { status: "denied" } | { status: "ready"; data: ReportData };
+type LoadState =
+  | { status: "loading" }
+  | { status: "denied" }
+  | { status: "error" }
+  | { status: "ready"; data: ReportData };
 
 /**
  * 권한 확인 후 보고서 데이터 로드.
@@ -117,6 +121,8 @@ export default function ReportPage() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [options, setOptions] = useState<ReportOptions>(DEFAULT_REPORT_OPTIONS);
   const [copyState, setCopyState] = useState<"idle" | "done" | "error">("idle");
+  // 다시 시도 시 증가 → 로드 effect 재실행
+  const [attempt, setAttempt] = useState(0);
 
   const email = authSession?.user?.email || null;
   const legacyId = (authSession?.user as Record<string, unknown> | undefined)?.id as string | undefined;
@@ -129,18 +135,38 @@ export default function ReportPage() {
         if (!cancelled) setState(result);
       })
       .catch((err) => {
+        // 네트워크 등 일시 오류는 권한 없음과 구분해 다시 시도할 수 있게 한다
         console.error("[report] 보고서 로드 실패", err);
-        if (!cancelled) setState({ status: "denied" });
+        if (!cancelled) setState({ status: "error" });
       });
     return () => {
       cancelled = true;
     };
-  }, [authStatus, sessionId, email, legacyId]);
+  }, [authStatus, sessionId, email, legacyId, attempt]);
 
   if (state.status === "loading") {
     return (
-      <div className="flex-1 flex items-center justify-center bg-transparent text-slate-text">
+      <div role="status" className="flex-1 flex items-center justify-center bg-transparent text-slate-text">
         보고서를 불러오는 중...
+      </div>
+    );
+  }
+
+  if (state.status === "error") {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <Card className="max-w-md p-8 text-center">
+          <h2 className="text-2xl font-bold text-graphite mb-3">보고서를 불러오지 못했습니다</h2>
+          <p className="text-sm text-slate-text mb-6">연결 상태를 확인한 뒤 다시 시도해주세요.</p>
+          <Button
+            onClick={() => {
+              setState({ status: "loading" });
+              setAttempt((n) => n + 1);
+            }}
+          >
+            다시 시도
+          </Button>
+        </Card>
       </div>
     );
   }

@@ -68,18 +68,22 @@ export default function PostInput({
     const urlPattern = /^https?:\/\/\S+$/i;
     const type = urlPattern.test(content.trim()) ? "link" : "text";
 
-    await addPost(sessionId, {
-      authorId,
-      authorName,
-      content: content.trim(),
-      type,
-      gridIndex: currentPostCount,
-      color,
-      isQuestion,
-    });
-
-    setContent("");
-    setIsQuestion(false);
+    try {
+      await addPost(sessionId, {
+        authorId,
+        authorName,
+        content: content.trim(),
+        type,
+        gridIndex: currentPostCount,
+        color,
+        isQuestion,
+      });
+      setContent("");
+      setIsQuestion(false);
+    } catch {
+      // 입력 내용은 지우지 않아 다시 시도할 수 있게 둔다
+      setError("게시에 실패했습니다. 연결 상태를 확인하고 다시 시도해주세요.");
+    }
     setLoading(false);
   }
 
@@ -133,9 +137,13 @@ export default function PostInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 pb-safe border-b border-silver-mist">
-      <div className="bg-buttercup border border-ochre/20 rounded-lg p-4 shadow-[--shadow-card]">
+    <form onSubmit={handleSubmit} className="p-4 border-b border-silver-mist bg-parchment">
+      <div className="bg-chalk-card border border-silver-mist rounded-xl p-3 sm:p-4 shadow-[--shadow-card] focus-within:border-graphite transition-colors">
+        <label htmlFor={`post-input-${sessionId}`} className="sr-only">
+          포스트잇 내용
+        </label>
         <textarea
+          id={`post-input-${sessionId}`}
           value={content}
           onChange={(e) => {
             setContent(e.target.value);
@@ -150,15 +158,22 @@ export default function PostInput({
           }
           rows={3}
           disabled={disabled}
-          className="w-full resize-none bg-transparent text-sm text-ink placeholder:text-ochre/50 outline-none disabled:opacity-60"
+          className="w-full resize-none bg-transparent text-base text-ink placeholder:text-ash-text outline-none disabled:opacity-60"
         />
         {uploadProgress > 0 && (
-          <div className="mt-1 h-1 bg-ochre/20 rounded-full overflow-hidden">
+          <div
+            role="progressbar"
+            aria-label="파일 업로드 진행률"
+            aria-valuenow={uploadProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="mt-1 h-1.5 bg-linen rounded-full overflow-hidden"
+          >
             <div className="h-full bg-graphite transition-all" style={{ width: `${uploadProgress}%` }} />
           </div>
         )}
-        <div className="flex items-center gap-3 mt-2 flex-wrap">
-          <Button type="submit" disabled={loading || !content.trim() || disabled}>
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <Button type="submit" disabled={loading || !content.trim() || disabled} className="touch-target">
             {loading ? "게시 중..." : "게시"}
           </Button>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
@@ -167,25 +182,33 @@ export default function PostInput({
             onClick={() => fileInputRef.current?.click()}
             disabled={loading || disabled}
             title="파일 첨부 (이미지/문서/오디오/비디오, 최대 50MB)"
-            className="text-ochre hover:text-graphite cursor-pointer disabled:opacity-50"
+            aria-label="파일 첨부 (최대 50MB)"
+            className="touch-target inline-flex items-center justify-center w-9 h-9 rounded-full text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer disabled:opacity-50"
           >
-            <RiAttachmentLine size={16} />
+            <RiAttachmentLine size={18} aria-hidden />
           </button>
 
           {/* 색상 태그 선택 */}
-          <div className="flex items-center gap-1.5" role="radiogroup" aria-label="포스트잇 색상">
+          <div className="flex items-center" role="radiogroup" aria-label="포스트잇 색상">
             {POST_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
+                role="radio"
+                aria-checked={color === c}
                 onClick={() => setColor(c)}
                 title={POST_COLOR_STYLES[c].label}
                 aria-label={`${POST_COLOR_STYLES[c].label} 포스트잇`}
-                className={`w-4 h-4 rounded-full border cursor-pointer transition-transform ${
-                  color === c ? "border-graphite scale-125" : "border-silver-mist"
-                }`}
-                style={{ backgroundColor: POST_COLOR_STYLES[c].dot }}
-              />
+                className="touch-target inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer"
+              >
+                <span
+                  aria-hidden
+                  className={`block w-4 h-4 rounded-full border-2 transition-transform ${
+                    color === c ? "border-graphite scale-125" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: POST_COLOR_STYLES[c].dot }}
+                />
+              </button>
             ))}
           </div>
 
@@ -193,20 +216,27 @@ export default function PostInput({
           <button
             type="button"
             onClick={() => setIsQuestion((v) => !v)}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer ${
+            aria-pressed={isQuestion}
+            className={`touch-target inline-flex items-center gap-1 h-8 px-3 rounded-full text-sm font-semibold border transition-colors cursor-pointer ${
               isQuestion
                 ? "bg-graphite text-chalk-card border-graphite"
-                : "bg-transparent text-ochre border-ochre/30 hover:border-graphite"
+                : "bg-chalk-card text-slate-text border-silver-mist hover:border-graphite"
             }`}
             title="질문으로 등록하면 질문 필터에서 모아볼 수 있습니다"
           >
-            <RiQuestionLine size={12} />
-            질문
+            <RiQuestionLine size={14} aria-hidden />
+            질문으로 등록
           </button>
 
-          <span className="text-xs text-ash-text ml-auto">{content.length}</span>
+          <span className="text-xs text-ash-text ml-auto" aria-label={`${content.length}자`}>
+            {content.length}
+          </span>
         </div>
-        {error && <p className="text-xs text-terracotta mt-2">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-terracotta mt-2">
+            {error}
+          </p>
+        )}
       </div>
     </form>
   );

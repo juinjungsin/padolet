@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seed, SEED, SUPER_ADMIN, TEACHER } from "../support/seed.mjs";
+import { seed, SEED, STORAGE_ORIGIN, SUPER_ADMIN, TEACHER } from "../support/seed.mjs";
 import { joinAsParticipant, loginAsAdmin } from "./helpers";
 
 // P0 검증 — 참여 지표 일관성(P0-01), 보고서 첨부·내보내기(P0-02), 입장 실패 회귀
@@ -46,8 +46,8 @@ test("보고서 화면과 MD에 첨부 전용 게시물의 파일명·링크·�
   const download = await downloadPromise;
   const md = await (await download.createReadStream()).toArray().then((c) => Buffer.concat(c).toString("utf8"));
   // 첨부 전용 게시물도 파일명 링크로 출력 (빈 항목 금지)
-  expect(md).toContain(`[${SEED.longFileName}](http://127.0.0.1:9199/`);
-  expect(md).toContain("[화면캡처.png](http://127.0.0.1:9199/");
+  expect(md).toContain(`[${SEED.longFileName}](${STORAGE_ORIGIN}/`);
+  expect(md).toContain(`[화면캡처.png](${STORAGE_ORIGIN}/`);
   expect(md).toContain("보고서");
   expect(md).not.toContain("레포트");
 });

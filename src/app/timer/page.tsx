@@ -120,7 +120,7 @@ function TimerContent() {
       <div className="max-w-[1200px] mx-auto w-full px-4 md:px-8 h-[72px] flex items-center">
         <Link
           href="/"
-          className="flex items-center gap-2 font-display text-xl tracking-tight text-graphite"
+          className="flex items-center gap-2 font-brand text-xl tracking-tight text-graphite"
           style={{ fontWeight: 700 }}
         >
           <Image src="/icon.png" alt="padolet" width={28} height={28} className="rounded-md" />
@@ -228,7 +228,7 @@ function TimerContent() {
         </div>
 
         {/* 시간 프리셋 (5분 단위, 5~60분) */}
-        <div className="flex flex-wrap justify-center gap-2 max-w-md">
+        <div className="flex flex-wrap justify-center gap-2 max-w-xl">
           {PRESETS.map((min) => {
             const active = selectedMin === min;
             return (

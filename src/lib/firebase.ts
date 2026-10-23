@@ -17,7 +17,12 @@ import {
  */
 export const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_EMULATOR === "1";
 export const EMULATOR_HOST = "127.0.0.1";
-export const EMULATOR_PORTS = { auth: 9099, firestore: 8080, storage: 9199 } as const;
+// 포트는 scripts/emulator-env.mjs가 주입 (PADOLET_EMULATOR_OFFSET으로 옮길 수 있음)
+export const EMULATOR_PORTS = {
+  auth: Number(process.env.NEXT_PUBLIC_EMULATOR_AUTH_PORT || 9099),
+  firestore: Number(process.env.NEXT_PUBLIC_EMULATOR_FIRESTORE_PORT || 8080),
+  storage: Number(process.env.NEXT_PUBLIC_EMULATOR_STORAGE_PORT || 9199),
+} as const;
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",

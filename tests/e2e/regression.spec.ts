@@ -32,8 +32,8 @@ test("기존 게시물·첨부·댓글·고정 상태가 보존되어 보인다 
   await expect(board).toContainText(SEED.longFileName);
   await expect(board.getByRole("img", { name: "화면캡처.png" })).toBeVisible();
   await expect(board).toContainText("고정됨");
-  const question = board.locator("div", { hasText: "노트끼리 연결은" }).last();
-  await expect(question).toContainText("1"); // 댓글 수
+  const question = board.locator("div.group", { hasText: "노트끼리 연결은" });
+  await expect(question.getByTitle("댓글")).toContainText("1"); // 댓글 수
 });
 
 test("교육생 글 게시 → 관리자 화면에 실시간 반영", async () => {
@@ -72,20 +72,31 @@ test("투표 참여 (QA-11)", async () => {
   await student.keyboard.press("Escape");
 });
 
-test("관리자 고정 → 교육생 화면에 고정됨 표시", async () => {
+test("관리자 고정(게시물 메뉴) → 교육생 화면에 고정됨 표시", async () => {
   const card = visible(admin, "post-board").locator("div.group", { hasText: "회귀 테스트 게시물" });
-  await card.hover();
-  await card.getByRole("button", { name: "고정", exact: true }).click();
+  await card.getByRole("button", { name: "게시물 메뉴" }).click();
+  await admin.getByRole("menuitem", { name: "고정", exact: true }).click();
   const studentCard = visible(student, "post-board").locator("div.group", { hasText: "회귀 테스트 게시물" });
   await expect(studentCard).toContainText("고정됨");
 });
 
-test("보드 잠금 → 교육생 작성 차단, 해제 후 복구 (QA-11)", async () => {
+test("교육생은 남의 글 게시물 메뉴가 없고, 본인 글에는 수정·삭제만 있다", async () => {
+  const others = visible(student, "post-board").locator("div.group", { hasText: "첫 번째 가상 포스트잇입니다." });
+  await expect(others.getByRole("button", { name: "게시물 메뉴" })).toHaveCount(0);
+  const mine = visible(student, "post-board").locator("div.group", { hasText: "회귀 테스트 게시물" });
+  await mine.getByRole("button", { name: "게시물 메뉴" }).click();
+  await expect(student.getByRole("menuitem")).toHaveText([/수정/, "삭제"]);
+  await student.keyboard.press("Escape");
+});
+
+test("보드 잠금(강사 도구) → 교육생 작성 차단, 해제 후 복구 (QA-11)", async () => {
   admin.once("dialog", (d) => d.accept());
-  await admin.getByTitle("보드 잠금 (참여자 열람만 가능)").click();
+  await admin.getByRole("button", { name: "강사 도구" }).click();
+  await admin.getByRole("menuitem", { name: /보드 잠금/ }).click();
   await expect(student.getByText("보드가 잠금 상태입니다.").first()).toBeVisible();
   await expect(student.getByPlaceholder("보드가 잠금 상태입니다 — 열람만 가능합니다").first()).toBeDisabled();
 
-  await admin.getByTitle("보드 잠금 해제").click();
+  await admin.getByRole("button", { name: "강사 도구" }).click();
+  await admin.getByRole("menuitem", { name: "보드 잠금 해제" }).click();
   await expect(student.getByPlaceholder("포스트잇에 내용을 작성하세요").first()).toBeEnabled();
 });

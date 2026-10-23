@@ -87,24 +87,25 @@ export default function PostComments({
   }
 
   return (
-    <div className="mt-2 pt-2 border-t border-silver-mist/60">
+    <div className="mt-3 pt-3 border-t border-silver-mist">
       {comments.length > 0 && (
         <ul className="space-y-1.5 mb-2">
           {comments.map((c) => {
             const own = !!currentUserId && c.authorId === currentUserId;
             return (
-              <li key={c.id} className="group/comment flex items-start gap-1.5 text-xs">
-                <span className="font-semibold text-gravel shrink-0">{c.authorName}</span>
-                <span className="flex-1 min-w-0 text-obsidian whitespace-pre-wrap break-words">
+              <li key={c.id} className="group/comment flex items-start gap-1.5 text-sm">
+                <span className="font-semibold text-slate-text shrink-0">{c.authorName}</span>
+                <span className="flex-1 min-w-0 text-ink whitespace-pre-wrap">
                   {c.content}
                 </span>
                 {(isAdmin || (own && !locked)) && (
                   <button
                     onClick={() => handleDelete(c.id)}
                     title="댓글 삭제"
-                    className="shrink-0 text-slate hover:text-ember opacity-0 group-hover/comment:opacity-100 transition-opacity cursor-pointer"
+                    aria-label={`${c.authorName}의 댓글 삭제`}
+                    className="hover-reveal touch-target shrink-0 inline-flex items-center justify-center w-7 h-7 -my-1 rounded-full text-slate-text hover:text-terracotta opacity-0 group-hover/comment:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
                   >
-                    <RiDeleteBinLine size={11} />
+                    <RiDeleteBinLine size={14} aria-hidden />
                   </button>
                 )}
               </li>
@@ -121,22 +122,24 @@ export default function PostComments({
               if (error) setError("");
             }}
             placeholder="댓글 달기..."
+            aria-label="댓글 입력"
             maxLength={500}
-            className="flex-1 min-w-0 px-2 py-1 text-xs text-ink bg-vellum/70 border border-silver-mist rounded-md outline-none focus:border-graphite"
+            className="flex-1 min-w-0 h-9 px-3 text-base sm:text-sm text-ink bg-chalk-card border border-field-border rounded-full outline-none focus:border-graphite"
           />
           <button
             type="submit"
             disabled={submitting || !text.trim()}
             title="댓글 등록"
-            className="shrink-0 text-slate hover:text-graphite disabled:opacity-40 cursor-pointer"
+            aria-label="댓글 등록"
+            className="touch-target shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full text-graphite hover:bg-vellum disabled:opacity-40 cursor-pointer"
           >
-            <RiSendPlane2Fill size={14} />
+            <RiSendPlane2Fill size={16} aria-hidden />
           </button>
         </form>
       ) : locked ? (
-        <p className="text-[10px] text-slate">보드 잠금 중 — 댓글 열람만 가능합니다</p>
+        <p className="text-xs text-slate-text">보드 잠금 중 — 댓글 열람만 가능합니다</p>
       ) : null}
-      {error && <p className="text-[10px] text-terracotta mt-1">{error}</p>}
+      {error && <p role="alert" className="text-xs text-terracotta mt-1">{error}</p>}
     </div>
   );
 }

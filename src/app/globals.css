@@ -1,72 +1,62 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Colors — Wave palette (파도 콘셉트)
-   * 은은한 파란색 계열의 현대적/심플 시스템.
-   * Token names preserved for backwards compatibility; values remapped to
-   * the cool-blue Wave system. 모든 페이지가 이 토큰을 참조하므로
-   * 여기서만 값을 바꾸면 전체 디자인이 일관되게 전환된다.
+  /* Colors — 화이트 + 차분한 남색 (2026-10 개편, 요구사항 5.1 제안 토큰)
+   * 기존 토큰 이름은 유지하고 값만 바꿔 모든 화면에 한 번에 적용한다.
+   * 텍스트 토큰은 흰색·앱 배경 위 대비 4.5:1 이상 (tests/unit/contrast.test.ts에서 검증).
    */
 
   /* Surfaces */
-  --color-parchment: #eff5fa;     /* primary page ground — 옅은 하늘빛 */
-  --color-vellum: #f7fafd;        /* secondary surface, alt section */
-  --color-chalk-card: #fdfeff;    /* highest surface, cards */
-  --color-linen: #dfebf5;         /* muted banner / chip ground */
-  --color-blossom: #eaeffb;       /* category badge bg */
-  --color-buttercup: #ddebf8;     /* highlight ground — 잔잔한 물빛 */
+  --color-parchment: #f6f8fb;     /* 앱 배경 */
+  --color-vellum: #f1f5f9;        /* 보조 표면 (입력창, 보조 패널) */
+  --color-chalk-card: #ffffff;    /* 카드·패널 */
+  --color-linen: #e8eef5;         /* 칩·배지 바탕 */
+  --color-blossom: #eef2ff;       /* 분류 배지 바탕 */
+  --color-buttercup: #eaf1fb;     /* 강조 바탕 (잠금 배너, 입력 카드) */
 
   /* Text & ink */
-  --color-ink: #2a3b4d;           /* primary body text — 깊은 바다 잉크 */
-  --color-graphite: #1c3d5a;      /* filled-button surface, headings — 심해 네이비 */
-  --color-graphite-dark: #142e45; /* hover for filled buttons */
-  --color-slate-text: #5a6e82;    /* secondary text — 청회색 */
-  --color-ash-text: #90a4b7;      /* tertiary text */
-  --color-silver-mist: #d3e0ec;   /* borders, dividers — 물안개 */
+  --color-ink: #172b4d;           /* 본문 */
+  --color-graphite: #183b56;      /* 주요색 — 주요 버튼, 제목 */
+  --color-graphite-dark: #102a40; /* 주요 버튼 hover */
+  --color-slate-text: #526277;    /* 보조 텍스트 */
+  --color-ash-text: #5f6f82;      /* 3차 텍스트 (메타 정보) */
+  --color-silver-mist: #dce3eb;   /* 테두리·구분선 */
+  --color-field-border: #7c8b9e;  /* 입력창 테두리 (비텍스트 대비 3:1) */
 
-  /* Accent */
-  --color-blueprint: #2e77e5;     /* links */
-  --color-dusk-blue: #4a73b0;     /* inline link */
-  --color-sage: #4e7a62;          /* success / correct */
-  --color-mauve: #8d5b8f;         /* customization text */
-  --color-ochre: #2f5f8f;         /* highlight 위 텍스트 — 짙은 물빛 */
-  --color-terracotta: #e85b4a;    /* danger / error */
+  /* Accent & status — 상태는 항상 아이콘·텍스트와 함께 쓴다 (색만으로 구분 금지) */
+  --color-blueprint: #2563eb;     /* 강조색 — 선택, 링크 */
+  --color-dusk-blue: #2563eb;
+  --color-sage: #166534;          /* 완료 텍스트 */
+  --color-ok-bg: #e8f6ec;         /* 완료 바탕 */
+  --color-warn: #9a3412;          /* 도움 필요 텍스트 (주황) */
+  --color-warn-bg: #fff4e5;       /* 도움 필요 바탕 */
+  --color-mauve: #8d5b8f;
+  --color-ochre: #1e4e8c;         /* 강조 바탕 위 텍스트 */
+  --color-terracotta: #b42318;    /* 위험·오류 */
 
-  /* Legacy token bridge — keep prior class names alive, point at Wave values */
-  --color-eggshell: #eff5fa;
-  --color-powder: #f7fafd;
-  --color-chalk: #d3e0ec;         /* silver-mist (border) */
-  --color-fog: #90a4b7;
-  --color-gravel: #5a6e82;
-  --color-slate: #90a4b7;
-  --color-cinder: #142e45;        /* hover state */
-  --color-obsidian: #1c3d5a;      /* graphite */
-  --color-signal-blue: #2e77e5;
-  --color-ember: #e85b4a;         /* terracotta */
+  /* Legacy token bridge — 이전 클래스 이름을 새 값에 연결 */
+  --color-eggshell: #f6f8fb;
+  --color-powder: #f1f5f9;
+  --color-chalk: #dce3eb;
+  --color-fog: #5f6f82;
+  --color-gravel: #526277;
+  --color-slate: #5f6f82;
+  --color-cinder: #102a40;
+  --color-obsidian: #183b56;
+  --color-signal-blue: #2563eb;
+  --color-ember: #b42318;
 
-  /* Typography — substitutes for Garnett / UniversalSans per DESIGN_site.md */
-  --font-display: 'Fraunces', 'DM Serif Display', Georgia, serif;
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  /* Typography — 제목·본문은 산세리프(한글은 시스템 고딕), 세리프는 워드마크(padolet)에만 */
+  --font-sans: var(--font-jakarta), "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --font-display: var(--font-jakarta), "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --font-brand: var(--font-fraunces), Georgia, serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
 
-  /* Spacing — 8px base */
-  --spacing-4: 4px;
-  --spacing-8: 8px;
-  --spacing-12: 12px;
-  --spacing-16: 16px;
-  --spacing-20: 20px;
-  --spacing-24: 24px;
-  --spacing-32: 32px;
-  --spacing-40: 40px;
-  --spacing-48: 48px;
-  --spacing-56: 56px;
-  --spacing-64: 64px;
-  --spacing-80: 80px;
-  --spacing-96: 96px;
-  --spacing-120: 120px;
-  --spacing-240: 240px;
+  /* Spacing — Tailwind 기본 4px 단위(p-4 = 16px)를 그대로 쓴다.
+   * 예전에 있던 숫자 이름 간격 토큰(spacing 4 = 4px 등)은 p-4·h-16 같은 유틸리티 값을
+   * 1/4로 줄여 상단 메뉴가 16px로 잘리는 등의 문제를 만들어 제거했다 (2026-10 개편). */
 
-  /* Border Radius — pill-forward */
+  /* Border Radius */
   --radius-none: 0px;
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -74,27 +64,24 @@
   --radius-xl: 16px;
   --radius-2xl: 20px;
   --radius-3xl: 24px;    /* modals */
-  --radius-pill: 42px;   /* primary CTA */
-  --radius-full: 9999px; /* badges / outlined CTA */
+  --radius-pill: 42px;
+  --radius-full: 9999px;
 
-  /* Shadows — 파란빛이 스민 3겹 그림자 */
-  --shadow-subtle: rgba(28, 61, 90, 0.05) 0px 0px 0px 1px inset;
-  --shadow-card: rgba(28, 61, 90, 0.02) 0px 4px 12px 0px,
-                 rgba(28, 61, 90, 0.06) 0px 2px 6px 0px,
-                 rgba(28, 61, 90, 0.10) 0px 1px 3px 0px;
-  --shadow-button: rgba(28, 61, 90, 0.02) 0px 4px 12px 0px,
-                   rgba(28, 61, 90, 0.06) 0px 2px 6px 0px,
-                   rgba(28, 61, 90, 0.10) 0px 1px 3px 0px;
+  /* Shadows */
+  --shadow-subtle: rgba(24, 59, 86, 0.05) 0px 0px 0px 1px inset;
+  --shadow-card: rgba(24, 59, 86, 0.04) 0px 2px 8px 0px,
+                 rgba(24, 59, 86, 0.06) 0px 1px 2px 0px;
+  --shadow-button: rgba(24, 59, 86, 0.04) 0px 2px 6px 0px,
+                   rgba(24, 59, 86, 0.06) 0px 1px 2px 0px;
 }
 
 body {
-  /* 위에서 아래로 수심이 깊어지는 은은한 그라데이션 */
   background-color: var(--color-parchment);
-  background-image: linear-gradient(180deg, #f3f8fc 0%, #e9f1f8 100%);
-  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-feature-settings: "ss01", "ss02";
+  /* 한국어는 의미 단위(어절)로 줄바꿈, 끊을 곳이 없는 긴 URL·파일명만 강제로 줄바꿈 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   /* iOS Safari 안전 영역 보정 */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
@@ -105,6 +92,33 @@ body {
   color: var(--color-graphite);
 }
 
+/* 키보드 포커스 표시 — 마우스 클릭에는 나타나지 않음 */
+:where(a, button, select, summary, [role="menuitem"], [role="tab"], [tabindex]):focus-visible,
+:where(input[type="checkbox"], input[type="radio"]):focus-visible {
+  outline: 2px solid var(--color-blueprint);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+:where(input, textarea):focus-visible {
+  outline: 2px solid var(--color-blueprint);
+  outline-offset: 1px;
+}
+
+/* 터치 기기에서 주요 터치 영역 44×44px 확보 (요구사항 5.3) */
+@media (pointer: coarse) {
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* 호버가 없는 기기(터치)에서는 호버로만 드러나는 요소를 항상 보이게 */
+@media (hover: none) {
+  .hover-reveal {
+    opacity: 1 !important;
+  }
+}
+
 /* 모바일에서 채팅/포스트잇 입력창이 가상 키보드에 가려지지 않도록 하단 안전영역 보정 */
 .pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom), 0px);
@@ -113,8 +127,9 @@ body {
   margin-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
-/* The display face wants a touch of optical sizing on Fraunces */
-.font-display {
+/* 워드마크(padolet) 세리프 */
+.font-brand {
+  font-family: var(--font-brand);
   font-optical-sizing: auto;
   font-variation-settings: "SOFT" 50, "WONK" 0;
 }
@@ -122,7 +137,7 @@ body {
 /* 인쇄 / PDF 내보내기 — 보고서 화면에서 nav, footer, 액션바를 숨기고 카드만 출력 */
 @media print {
   body {
-    background-color: #ffffff !important;
+    background: #ffffff !important;
     color: #000000 !important;
   }
   nav,

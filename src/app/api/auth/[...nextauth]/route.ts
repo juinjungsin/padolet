@@ -34,8 +34,9 @@ const emulatorProviders = EMULATOR_LOGIN_ENABLED
 async function isAllowedDelegatedAdmin(email: string): Promise<boolean> {
   if (EMULATOR_LOGIN_ENABLED) {
     const project = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const port = process.env.NEXT_PUBLIC_EMULATOR_FIRESTORE_PORT || "8080";
     const res = await fetch(
-      `http://127.0.0.1:8080/v1/projects/${project}/databases/(default)/documents/admins/${encodeURIComponent(email.toLowerCase())}`
+      `http://127.0.0.1:${port}/v1/projects/${project}/databases/(default)/documents/admins/${encodeURIComponent(email.toLowerCase())}`
     );
     return res.ok;
   }

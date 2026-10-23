@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { EMULATOR_APP_PORT } from "./scripts/emulator-env.mjs";
+import { EMULATOR_APP_PORT, EMULATOR_PORTS } from "./scripts/emulator-env.mjs";
 
 // E2E 검증 — 에뮬레이터 + 에뮬레이터 연결 개발 서버를 자동으로 띄운다 (`npm run test:e2e`)
 // 운영 Firebase에는 접속하지 않는다 (demo-padolet 프로젝트).
@@ -21,7 +21,7 @@ export default defineConfig({
   webServer: [
     {
       command: "node scripts/emulators.mjs start",
-      url: "http://127.0.0.1:8080",
+      url: `http://127.0.0.1:${EMULATOR_PORTS.firestore}`,
       reuseExistingServer: true,
       timeout: 240_000,
     },

@@ -273,7 +273,7 @@ export default function AdminPage() {
       <div className="flex-1 flex flex-col items-center justify-center bg-transparent px-4">
         <div className="text-center mb-8">
           <h1
-            className="font-display text-5xl text-graphite mb-3"
+            className="font-brand text-5xl text-graphite mb-3"
             style={{ fontWeight: 700, letterSpacing: "-1.2px", lineHeight: 1.08 }}
           >
             padolet

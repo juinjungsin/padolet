@@ -4,9 +4,14 @@ import type { NextConfig } from "next";
 // 'unsafe-inline'은 Tailwind / Next 인라인 스타일을 위해 style-src에 포함. script는 'self'와 nonce 없는
 // 인라인을 허용하지 않음 (Next 16의 인라인 부트스트랩은 hash 기반으로 처리됨).
 // 로컬 에뮬레이터 모드(NEXT_PUBLIC_USE_EMULATOR=1)에서만 127.0.0.1 에뮬레이터 포트를 추가 허용.
+const emu = {
+  auth: process.env.NEXT_PUBLIC_EMULATOR_AUTH_PORT || "9099",
+  firestore: process.env.NEXT_PUBLIC_EMULATOR_FIRESTORE_PORT || "8080",
+  storage: process.env.NEXT_PUBLIC_EMULATOR_STORAGE_PORT || "9199",
+};
 const emulatorOrigins =
   process.env.NEXT_PUBLIC_USE_EMULATOR === "1"
-    ? " http://127.0.0.1:9099 http://127.0.0.1:8080 ws://127.0.0.1:8080 http://127.0.0.1:9199"
+    ? ` http://127.0.0.1:${emu.auth} http://127.0.0.1:${emu.firestore} ws://127.0.0.1:${emu.firestore} http://127.0.0.1:${emu.storage}`
     : "";
 
 const csp = [

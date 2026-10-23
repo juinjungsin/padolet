@@ -317,7 +317,7 @@ export default function ChatPanel({
       const body = lines.slice(1).join("\n");
       return (
         <div>
-          <div className={`text-[11px] mb-1 px-2 py-1 rounded border-l-2 ${
+          <div className={`text-xs mb-1 px-2 py-1 rounded border-l-2 ${
             msg.authorId === authorId
               ? "border-eggshell/50 bg-white/10 text-eggshell/70"
               : "border-gravel/30 bg-obsidian/5 text-gravel"
@@ -341,8 +341,8 @@ export default function ChatPanel({
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
     >
-      <div className="px-4 py-3 border-b border-chalk">
-        <span className="text-sm font-medium text-obsidian">대화</span>
+      <div className="px-4 py-3 border-b border-silver-mist">
+        <h2 className="text-base font-semibold text-graphite">대화</h2>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -359,10 +359,10 @@ export default function ChatPanel({
         )}
         {messages.map((msg) => (
           <div key={msg.id} className={`${msg.authorId === authorId ? "text-right" : ""}`}>
-            <p className="text-[10px] text-gravel mb-0.5">{msg.authorName}</p>
+            <p className="text-xs font-semibold text-slate-text mb-1">{msg.authorName}</p>
             {msg.hidden ? (
               <div
-                className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm text-left bg-vellum text-ash-text border border-silver-mist italic ${
+                className={`inline-block max-w-[85%] px-3 py-2 rounded-2xl text-[15px] text-left bg-vellum text-ash-text border border-silver-mist italic ${
                   isAdmin ? "opacity-90" : ""
                 }`}
               >
@@ -371,7 +371,7 @@ export default function ChatPanel({
                   관리자가 숨긴 메시지입니다
                 </span>
                 {isAdmin && (
-                  <div className="mt-1 text-[10px] text-slate-text not-italic">
+                  <div className="mt-1 text-xs text-slate-text not-italic">
                     원본: {msg.content || "(파일/이미지)"}
                   </div>
                 )}
@@ -388,7 +388,7 @@ export default function ChatPanel({
                 <div className="flex justify-end gap-2 mt-1">
                   <button
                     onClick={cancelEdit}
-                    className="inline-flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-xs h-7 px-1 text-slate hover:text-graphite cursor-pointer"
                   >
                     <RiCloseLine size={11} />
                     취소
@@ -396,7 +396,7 @@ export default function ChatPanel({
                   <button
                     onClick={() => saveEdit(msg)}
                     disabled={!editingText.trim()}
-                    className="inline-flex items-center gap-0.5 text-[10px] text-graphite font-semibold hover:text-blueprint disabled:opacity-40 cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-xs h-7 px-1 text-graphite font-semibold hover:text-blueprint disabled:opacity-40 cursor-pointer"
                   >
                     <RiCheckLine size={11} />
                     저장
@@ -405,7 +405,7 @@ export default function ChatPanel({
               </div>
             ) : (
               <div
-                className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm text-left ${
+                className={`inline-block max-w-[85%] px-3 py-2 rounded-2xl text-[15px] leading-relaxed text-left whitespace-pre-wrap ${
                   msg.authorId === authorId
                     ? "bg-obsidian text-eggshell"
                     : "bg-powder text-obsidian"
@@ -434,11 +434,14 @@ export default function ChatPanel({
                   </a>
                 )}
                 {msg.type === "text" && renderMessageContent(msg)}
-                {msg.type !== "text" && msg.content && <p className="mt-1">{msg.content}</p>}
+                {/* 파일 메시지의 content는 파일명과 같으므로 중복 표시하지 않음 */}
+                {msg.type !== "text" && msg.content && msg.content !== msg.fileMeta?.name && (
+                  <p className="mt-1">{msg.content}</p>
+                )}
               </div>
             )}
             <div className={`flex items-center gap-2 mt-0.5 ${msg.authorId === authorId ? "justify-end" : ""}`}>
-              <p className="text-[10px] text-slate">
+              <p className="text-xs text-ash-text">
                 {formatTime(msg.createdAt)}
                 {msg.editedAt && <span className="ml-1 italic">· 수정됨</span>}
               </p>
@@ -453,7 +456,7 @@ export default function ChatPanel({
                       setCopiedId(`failed:${msg.id}`);
                     }
                   }}
-                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+                  className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-obsidian cursor-pointer transition-colors"
                 >
                   <RiFileCopyLine size={10} />
                   {copiedId === msg.id ? "복사됨" : copiedId === `failed:${msg.id}` ? "복사 실패 — 다시 시도" : "복사"}
@@ -461,7 +464,7 @@ export default function ChatPanel({
               )}
               <button
                 onClick={() => handleReply(msg)}
-                className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
+                className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-obsidian cursor-pointer transition-colors"
               >
                 <RiReplyLine size={10} />
                 답글
@@ -475,7 +478,7 @@ export default function ChatPanel({
                   <button
                     onClick={() => startEdit(msg)}
                     title="수정 (작성 후 5분 이내)"
-                    className="flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer transition-colors"
+                    className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-graphite cursor-pointer transition-colors"
                   >
                     <RiEditLine size={10} />
                     수정
@@ -484,7 +487,7 @@ export default function ChatPanel({
               {isAdmin && (
                 <button
                   onClick={() => handleToggleHide(msg)}
-                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer transition-colors"
+                  className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-graphite cursor-pointer transition-colors"
                   title={msg.hidden ? "다시 보이기" : "메시지 숨기기"}
                 >
                   {msg.hidden ? <RiEyeLine size={10} /> : <RiEyeOffLine size={10} />}
@@ -494,7 +497,7 @@ export default function ChatPanel({
               {isAdmin && msg.authorId !== authorId && (
                 <button
                   onClick={() => handleBlock(msg.authorName)}
-                  className="flex items-center gap-0.5 text-[10px] text-slate hover:text-terracotta cursor-pointer transition-colors"
+                  className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-terracotta cursor-pointer transition-colors"
                   title={`${msg.authorName} 차단`}
                 >
                   <RiUserForbidLine size={10} />
@@ -523,21 +526,22 @@ export default function ChatPanel({
         <div className="px-3 py-2 border-t border-chalk bg-powder flex items-center gap-2">
           <RiReplyLine size={12} className="text-gravel flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-gravel font-medium">{replyTo.authorName}</p>
-            <p className="text-[11px] text-slate truncate">{replyTo.content}</p>
+            <p className="text-xs text-slate-text font-semibold">{replyTo.authorName}</p>
+            <p className="text-sm text-ink truncate">{replyTo.content}</p>
           </div>
           <button
             onClick={() => setReplyTo(null)}
-            className="text-slate hover:text-obsidian cursor-pointer text-xs"
+            aria-label="답글 취소"
+            className="touch-target inline-flex items-center justify-center w-8 h-8 rounded-full text-slate-text hover:text-graphite cursor-pointer"
           >
-            ✕
+            <RiCloseLine size={16} aria-hidden />
           </button>
         </div>
       )}
 
       {sendError && (
         <div className="px-4 py-2 border-t border-silver-mist bg-buttercup">
-          <p className="text-xs text-ochre">{sendError}</p>
+          <p role="alert" className="text-sm text-ochre">{sendError}</p>
         </div>
       )}
 
@@ -562,10 +566,20 @@ export default function ChatPanel({
             className="hidden"
             onChange={handleFileChange}
           />
-          <button type="button" onClick={handleFileClick} className="text-slate-text hover:text-graphite cursor-pointer">
-            <RiAttachmentLine size={18} />
+          <button
+            type="button"
+            onClick={handleFileClick}
+            aria-label="파일 첨부 (최대 50MB)"
+            title="파일 첨부 (최대 50MB)"
+            className="touch-target inline-flex items-center justify-center w-10 h-10 rounded-full text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer"
+          >
+            <RiAttachmentLine size={20} aria-hidden />
           </button>
+          <label htmlFor={`chat-input-${sessionId}`} className="sr-only">
+            메시지 입력
+          </label>
           <input
+            id={`chat-input-${sessionId}`}
             ref={inputRef}
             value={input}
             onChange={(e) => {
@@ -579,14 +593,15 @@ export default function ChatPanel({
               }, 300);
             }}
             placeholder={replyTo ? `${replyTo.authorName}에게 답장...` : "메시지 입력..."}
-            className="flex-1 bg-transparent text-sm text-ink placeholder:text-ash-text outline-none"
+            className="flex-1 min-w-0 h-10 bg-transparent text-base text-ink placeholder:text-ash-text outline-none"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="text-graphite disabled:text-ash-text cursor-pointer"
+            aria-label="보내기"
+            className="touch-target inline-flex items-center justify-center w-10 h-10 rounded-full text-graphite hover:bg-vellum disabled:text-ash-text cursor-pointer"
           >
-            <RiSendPlaneFill size={18} />
+            <RiSendPlaneFill size={20} aria-hidden />
           </button>
         </form>
       )}

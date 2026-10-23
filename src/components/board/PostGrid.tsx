@@ -14,10 +14,13 @@ import {
   reactionTotal,
   setSpotlightPost,
 } from "@/lib/firestore";
-import { postColorBg } from "@/lib/post-colors";
+import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { formatBytes, formatTime } from "@/lib/format";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import Card from "@/components/ui/Card";
+import Menu, { MenuItem } from "@/components/ui/Menu";
+import Collapsible from "@/components/ui/Collapsible";
+import WaveDecor from "@/components/ui/WaveDecor";
 import PostComments from "@/components/board/PostComments";
 import {
   RiDeleteBinLine,
@@ -30,6 +33,9 @@ import {
   RiQuestionLine,
   RiFocus3Line,
   RiChat1Line,
+  RiMoreFill,
+  RiAttachment2,
+  RiExternalLinkLine,
 } from "react-icons/ri";
 
 export type PostSortMode = "default" | "latest" | "reactions";
@@ -44,7 +50,7 @@ function renderTextWithLinks(text: string) {
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-signal-blue break-all hover:underline"
+          className="text-blueprint underline-offset-2 hover:underline"
         >
           {part}
         </a>
@@ -77,6 +83,9 @@ interface PostGridProps {
   locked?: boolean;
 }
 
+const footerButton =
+  "touch-target inline-flex items-center gap-1 h-8 px-2 rounded-full text-xs text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer transition-colors";
+
 export default function PostGrid({
   sessionId,
   isAdmin,
@@ -90,7 +99,7 @@ export default function PostGrid({
   spotlightPostId = null,
   locked = false,
 }: PostGridProps) {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Post[] | null>(null);
 
   useEffect(() => {
     const unsub = onPosts(sessionId, setPosts);
@@ -169,7 +178,15 @@ export default function PostGrid({
     await setSpotlightPost(sessionId, next);
   }
 
-  // 검색 필터 (대소문자 무시, 작성자/본문 모두)
+  if (posts === null) {
+    return (
+      <div role="status" className="p-12 text-center text-slate-text">
+        포스트잇을 불러오는 중...
+      </div>
+    );
+  }
+
+  // 검색 필터 (대소문자 무시, 작성자/본문/파일명)
   let filteredPosts = searchQuery.trim()
     ? posts.filter((p) => {
         const q = searchQuery.toLowerCase();
@@ -191,7 +208,7 @@ export default function PostGrid({
     filteredPosts = filteredPosts.filter((p) => (p.color || "yellow") === colorFilter);
   }
 
-  // 정렬 — 핀은 항상 최상단, 그 다음 정렬 기준 적용
+  // 정렬 — 고정된 항목은 항상 최상단, 그 다음 정렬 기준 적용
   if (sortMode !== "default") {
     filteredPosts = [...filteredPosts].sort((a, b) => {
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
@@ -204,196 +221,227 @@ export default function PostGrid({
     });
   }
 
-  function renderContent(post: Post) {
-    switch (post.type) {
-      case "link":
-        if (!isSafeExternalUrl(post.content)) {
-          return <p className="text-sm text-ash-text break-all">{post.content}</p>;
-        }
-        return (
-          <a
-            href={post.content}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-signal-blue text-sm break-all hover:underline"
-          >
-            {post.content}
-          </a>
-        );
-      case "image":
-        if (!post.fileUrl || !isSafeExternalUrl(post.fileUrl)) {
-          return (
-            <div className="text-xs text-ash-text">
-              🖼️ {post.fileMeta?.name || "이미지"} (차단됨)
-              {post.content && <p className="text-sm text-obsidian mt-1">{post.content}</p>}
-            </div>
-          );
-        }
-        return (
-          <div>
-            <img
-              src={post.fileUrl}
-              alt={post.fileMeta?.name || "이미지"}
-              className="w-full rounded-lg mb-2 cursor-pointer"
-              onClick={() => window.open(post.fileUrl, "_blank", "noopener,noreferrer")}
-            />
-            {post.content && <p className="text-sm text-obsidian">{post.content}</p>}
-          </div>
-        );
-      case "file":
-        if (!post.fileUrl || !isSafeExternalUrl(post.fileUrl)) {
-          return <span className="text-sm text-ash-text">📎 {post.fileMeta?.name || "파일"} (차단됨)</span>;
-        }
-        return (
-          <div>
-            <a
-              href={post.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-signal-blue hover:underline break-all"
-            >
-              📎 {post.fileMeta?.name || "파일"}
-              <span className="text-xs text-ash-text ml-1">({formatBytes(post.fileMeta?.size)})</span>
-            </a>
-            {post.content && <p className="text-sm text-obsidian mt-1">{post.content}</p>}
-          </div>
-        );
-      default:
-        return <p className="text-sm text-obsidian whitespace-pre-wrap">{renderTextWithLinks(post.content)}</p>;
+  function renderAttachment(post: Post) {
+    const name = post.fileMeta?.name || (post.type === "image" ? "이미지" : "파일");
+    const safe = !!post.fileUrl && isSafeExternalUrl(post.fileUrl);
+    if (!safe) {
+      return (
+        <p className="text-sm text-slate-text">
+          {post.type === "image" ? "🖼️" : "📎"} {name} (열 수 없는 주소)
+        </p>
+      );
     }
+    if (post.type === "image") {
+      return (
+        <a
+          href={post.fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block"
+          aria-label={`${name} 원본 이미지 새 창에서 보기`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- Storage 서명 URL, 최적화 대상 아님 */}
+          <img
+            src={post.fileUrl}
+            alt={name}
+            className="w-full max-h-80 object-cover rounded-lg border border-silver-mist bg-vellum"
+          />
+        </a>
+      );
+    }
+    const size = formatBytes(post.fileMeta?.size);
+    return (
+      <a
+        href={post.fileUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={name}
+        aria-label={`${name} 열기 (${size})`}
+        className="flex items-start gap-2 p-2.5 rounded-lg border border-silver-mist bg-vellum hover:border-blueprint transition-colors"
+      >
+        <RiAttachment2 size={18} aria-hidden className="shrink-0 mt-0.5 text-slate-text" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-blueprint line-clamp-2">{name}</span>
+          <span className="block text-xs text-ash-text mt-0.5">{size}</span>
+        </span>
+        <RiExternalLinkLine size={16} aria-hidden className="shrink-0 mt-0.5 text-slate-text" />
+      </a>
+    );
+  }
+
+  function renderBody(post: Post) {
+    const text = post.content?.trim();
+    const attachment = post.type === "image" || post.type === "file";
+    return (
+      <div className="space-y-2">
+        {text &&
+          (post.type === "link" ? (
+            isSafeExternalUrl(post.content) ? (
+              <a
+                href={post.content}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-base text-blueprint hover:underline"
+              >
+                {post.content}
+              </a>
+            ) : (
+              <p className="text-base text-slate-text">{post.content}</p>
+            )
+          ) : (
+            <Collapsible>
+              <p className="text-base leading-relaxed text-ink whitespace-pre-wrap">
+                {renderTextWithLinks(post.content)}
+              </p>
+            </Collapsible>
+          ))}
+        {attachment && renderAttachment(post)}
+      </div>
+    );
   }
 
   if (posts.length === 0) {
     return (
-      <div className="p-12 text-center text-sm text-ash-text">
-        아직 등록된 포스트잇이 없습니다.
+      <div className="relative flex-1 min-h-[280px] p-12 text-center overflow-hidden">
+        <p className="relative z-10 text-base font-semibold text-graphite">아직 등록된 포스트잇이 없습니다.</p>
+        <p className="relative z-10 mt-1 text-sm text-slate-text">위 입력창에 첫 글을 남겨 보세요.</p>
+        <WaveDecor />
       </div>
     );
   }
 
-  if (filteredPosts.length === 0 && searchQuery.trim()) {
+  if (filteredPosts.length === 0) {
     return (
-      <div className="p-12 text-center text-sm text-ash-text">
-        &ldquo;{searchQuery}&rdquo;에 해당하는 포스트잇이 없습니다.
-      </div>
-    );
-  }
-
-  if (filteredPosts.length === 0 && (questionsOnly || colorFilter)) {
-    return (
-      <div className="p-12 text-center text-sm text-ash-text">
-        {questionsOnly ? "등록된 질문이 없습니다." : "해당 색상의 포스트잇이 없습니다."}
+      <div role="status" className="p-12 text-center text-slate-text">
+        {searchQuery.trim()
+          ? `“${searchQuery}”에 해당하는 포스트잇이 없습니다.`
+          : questionsOnly
+            ? "등록된 질문이 없습니다."
+            : "해당 색상의 포스트잇이 없습니다."}
       </div>
     );
   }
 
   return (
-    <div data-testid="post-board" className="p-4 columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-3">
+    <div
+      data-testid="post-board"
+      className="p-4 columns-1 min-[520px]:columns-2 xl:columns-3 2xl:columns-4 gap-4"
+    >
       {filteredPosts.map((post) => {
         const isOwn = !!currentUserId && post.authorId === currentUserId;
         const editable = isOwn && !locked && canEditWindow(post.createdAt);
         const isEditing = editingId === post.id;
         const isSpotlighted = !!post.id && spotlightPostId === post.id;
+        const stripe = POST_COLOR_STYLES[post.color || "yellow"].dot;
+
+        const menuItems: MenuItem[] = [];
+        if (post.id) {
+          if (editable && post.type === "text" && !isEditing) {
+            menuItems.push({ key: "edit", label: "수정 (작성 후 5분 이내)", icon: <RiEditLine size={16} />, onSelect: () => startEdit(post) });
+          }
+          if (isAdmin) {
+            menuItems.push({
+              key: "pin",
+              label: post.pinned ? "고정 해제" : "고정",
+              icon: post.pinned ? <RiPushpin2Line size={16} /> : <RiPushpinFill size={16} />,
+              onSelect: () => handleTogglePin(post),
+            });
+            menuItems.push({
+              key: "spotlight",
+              label: isSpotlighted ? "프로젝터 크게 보기 해제" : "프로젝터에 크게 보기",
+              icon: <RiFocus3Line size={16} />,
+              onSelect: () => handleToggleSpotlight(post),
+              active: isSpotlighted,
+            });
+          }
+          if (isAdmin || (isOwn && !locked)) {
+            menuItems.push({ key: "delete", label: "삭제", icon: <RiDeleteBinLine size={16} />, onSelect: () => handleDelete(post.id!), danger: true });
+          }
+        }
+
         return (
           <Card
             key={post.id}
-            className={`p-4 relative group mb-3 break-inside-avoid ${
-              post.pinned ? "ring-2 ring-buttercup ring-offset-2 ring-offset-parchment" : ""
-            } ${isSpotlighted ? "ring-2 ring-graphite ring-offset-2 ring-offset-parchment" : ""}`}
-            style={{ backgroundColor: postColorBg(post.color) }}
+            className={`group relative mb-4 break-inside-avoid p-4 pl-5 rounded-xl ${
+              isSpotlighted ? "ring-2 ring-blueprint" : post.pinned ? "ring-1 ring-graphite/30" : ""
+            }`}
           >
-            {post.pinned && (
-              <span className="absolute -top-2 -right-2 inline-flex items-center gap-1 bg-buttercup text-ochre text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-[--shadow-card]">
-                <RiPushpinFill size={10} />
-                고정됨
-              </span>
-            )}
-            <div className="flex items-center justify-between mb-2 gap-1">
-              <span className="text-xs text-gravel truncate flex items-center gap-1">
-                {post.isQuestion && (
-                  <span
-                    className="inline-flex items-center gap-0.5 bg-graphite text-chalk-card text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-                    title="질문"
-                  >
-                    <RiQuestionLine size={9} aria-hidden />질문
+            {/* 색상 태그 띠 — 메뉴 드롭다운이 잘리지 않도록 카드에 overflow-hidden을 쓰지 않는다 */}
+            <span
+              aria-hidden
+              className="absolute left-0 inset-y-0 w-1.5 rounded-l-xl"
+              style={{ backgroundColor: stripe }}
+            />
+
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-sm font-semibold text-ink truncate max-w-full">{post.authorName}</span>
+                <span className="text-xs text-ash-text">
+                  {formatTime(post.createdAt)}
+                  {post.editedAt && " · 수정됨"}
+                </span>
+                {post.pinned && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-linen text-graphite text-xs font-semibold">
+                    <RiPushpinFill size={12} aria-hidden />
+                    고정됨
                   </span>
                 )}
-                {post.authorName}
-              </span>
-              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                {isAdmin && post.id && (
-                  <button
-                    onClick={() => handleToggleSpotlight(post)}
-                    title={isSpotlighted ? "스포트라이트 해제" : "프로젝터에 확대 표시"}
-                    className={`cursor-pointer ${
-                      isSpotlighted ? "text-graphite" : "text-slate hover:text-graphite"
-                    }`}
-                  >
-                    <RiFocus3Line size={13} />
-                  </button>
+                {post.isQuestion && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blossom text-graphite text-xs font-semibold">
+                    <RiQuestionLine size={12} aria-hidden />
+                    질문
+                  </span>
                 )}
-                {isAdmin && post.id && (
-                  <button
-                    onClick={() => handleTogglePin(post)}
-                    title={post.pinned ? "고정 해제" : "고정"}
-                    aria-label={post.pinned ? "고정 해제" : "고정"}
-                    className="text-slate hover:text-ochre cursor-pointer"
-                  >
-                    {post.pinned ? <RiPushpinFill size={13} /> : <RiPushpin2Line size={13} />}
-                  </button>
-                )}
-                {editable && post.id && !isEditing && post.type === "text" && (
-                  <button
-                    onClick={() => startEdit(post)}
-                    title="편집 (작성 후 5분 이내)"
-                    className="text-slate hover:text-graphite cursor-pointer"
-                  >
-                    <RiEditLine size={13} />
-                  </button>
-                )}
-                {(isAdmin || (isOwn && !locked)) && post.id && (
-                  <button
-                    onClick={() => handleDelete(post.id!)}
-                    title="삭제"
-                    className="text-slate hover:text-ember cursor-pointer"
-                  >
-                    <RiDeleteBinLine size={13} />
-                  </button>
+                {isSpotlighted && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-buttercup text-ochre text-xs font-semibold">
+                    <RiFocus3Line size={12} aria-hidden />
+                    프로젝터 표시 중
+                  </span>
                 )}
               </div>
+              {menuItems.length > 0 && (
+                <Menu
+                  label="게시물 메뉴"
+                  items={menuItems}
+                  triggerClassName="touch-target -mt-1 -mr-2 inline-flex items-center justify-center w-8 h-8 rounded-full text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer"
+                  trigger={<RiMoreFill size={18} aria-hidden />}
+                />
+              )}
             </div>
+
             {isEditing ? (
               <div>
+                <label htmlFor={`edit-${post.id}`} className="sr-only">
+                  포스트잇 수정
+                </label>
                 <textarea
+                  id={`edit-${post.id}`}
                   value={editingText}
                   onChange={(e) => setEditingText(e.target.value)}
-                  rows={3}
-                  className="w-full p-2 text-sm text-ink bg-vellum border border-silver-mist rounded-md outline-none focus:border-graphite resize-none"
+                  rows={4}
+                  className="w-full p-2 text-base text-ink bg-chalk-card border border-field-border rounded-md outline-none focus:border-graphite resize-y"
                   autoFocus
                 />
                 <div className="flex justify-end gap-1 mt-1">
-                  <button
-                    onClick={cancelEdit}
-                    className="inline-flex items-center gap-0.5 text-[10px] text-slate hover:text-graphite cursor-pointer"
-                  >
-                    <RiCloseLine size={12} />
+                  <button onClick={cancelEdit} className={footerButton}>
+                    <RiCloseLine size={14} aria-hidden />
                     취소
                   </button>
                   <button
                     onClick={() => saveEdit(post.id!)}
                     disabled={!editingText.trim()}
-                    className="inline-flex items-center gap-0.5 text-[10px] text-graphite font-semibold hover:text-blueprint disabled:opacity-40 cursor-pointer"
+                    className={`${footerButton} font-semibold text-graphite disabled:opacity-40`}
                   >
-                    <RiCheckLine size={12} />
+                    <RiCheckLine size={14} aria-hidden />
                     저장
                   </button>
                 </div>
               </div>
             ) : (
-              renderContent(post)
+              renderBody(post)
             )}
-            {/* 리액션 바 */}
-            <div className="flex items-center gap-1 mt-2">
+
+            <div className="flex flex-wrap items-center gap-1 mt-3 -ml-1">
               {REACTIONS.map((r) => {
                 const users = post.reactions?.[r.key] || [];
                 const mine = !!currentUserId && users.includes(currentUserId);
@@ -402,59 +450,46 @@ export default function PostGrid({
                     key={r.key}
                     onClick={() => handleToggleReaction(post, r.key)}
                     disabled={!currentUserId || locked}
+                    aria-pressed={mine}
+                    aria-label={`${r.key === "up" ? "좋아요" : r.key === "heart" ? "하트" : "박수"} ${users.length}`}
                     title={locked ? "보드 잠금 중" : mine ? "리액션 취소" : "리액션"}
-                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] border transition-colors cursor-pointer disabled:cursor-default ${
+                    className={`touch-target inline-flex items-center gap-1 h-8 px-2 rounded-full text-sm border transition-colors cursor-pointer disabled:cursor-default ${
                       mine
-                        ? "border-graphite bg-vellum font-semibold"
+                        ? "border-graphite bg-linen font-semibold"
                         : users.length > 0
-                          ? "border-silver-mist bg-transparent"
-                          : "border-transparent opacity-40 group-hover:opacity-100 hover:border-silver-mist"
+                          ? "border-silver-mist"
+                          : "border-transparent opacity-60 hover:opacity-100 hover:border-silver-mist"
                     }`}
                   >
-                    <span>{r.emoji}</span>
-                    {users.length > 0 && <span className="tabular-nums">{users.length}</span>}
+                    <span aria-hidden>{r.emoji}</span>
+                    {users.length > 0 && <span className="tabular-nums text-xs">{users.length}</span>}
                   </button>
                 );
               })}
+              <span className="flex-1" />
+              {post.id && (
+                <button
+                  onClick={() => toggleComments(post.id!)}
+                  title="댓글"
+                  aria-expanded={openComments.has(post.id)}
+                  className={`${footerButton} ${openComments.has(post.id) ? "text-graphite font-semibold" : ""}`}
+                >
+                  <RiChat1Line size={14} aria-hidden />
+                  {post.commentCount ? <span className="tabular-nums">{post.commentCount}</span> : "댓글"}
+                </button>
+              )}
+              {post.content?.trim() && (
+                <button onClick={() => handleCopy(post.content, post.id!)} className={footerButton}>
+                  <RiFileCopyLine size={14} aria-hidden />
+                  {copiedId === post.id
+                    ? "복사됨"
+                    : copyFailedId === post.id
+                      ? "복사 실패 — 다시 시도"
+                      : "복사"}
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-[10px] text-slate">
-                {formatTime(post.createdAt)}
-                {post.editedAt && <span className="ml-1 italic">· 수정됨</span>}
-              </p>
-              <div className="flex items-center gap-2">
-                {post.id && (
-                  <button
-                    onClick={() => toggleComments(post.id!)}
-                    title="댓글"
-                    className={`flex items-center gap-0.5 text-[10px] cursor-pointer transition-colors ${
-                      openComments.has(post.id) ? "text-obsidian" : "text-slate hover:text-obsidian"
-                    }`}
-                  >
-                    <RiChat1Line size={11} />
-                    {post.commentCount ? (
-                      <span className="tabular-nums">{post.commentCount}</span>
-                    ) : (
-                      "댓글"
-                    )}
-                  </button>
-                )}
-                {post.content?.trim() && (
-                  <button
-                    onClick={() => handleCopy(post.content, post.id!)}
-                    className="flex items-center gap-0.5 text-[10px] text-slate hover:text-obsidian cursor-pointer transition-colors"
-                  >
-                    <RiFileCopyLine size={11} />
-                    {copiedId === post.id
-                      ? "복사됨"
-                      : copyFailedId === post.id
-                        ? "복사 실패 — 다시 시도"
-                        : "복사"}
-                  </button>
-                )}
-              </div>
-            </div>
             {post.id && openComments.has(post.id) && (
               <PostComments
                 sessionId={sessionId}

@@ -38,7 +38,7 @@ export default function Home() {
           교육용 실시간 보드
         </span>
         <h1
-          className="font-display text-6xl md:text-7xl text-graphite mb-4"
+          className="font-brand text-6xl md:text-7xl text-graphite mb-4"
           style={{ fontWeight: 700, letterSpacing: "-1.6px", lineHeight: 1.05 }}
         >
           padolet

@@ -19,6 +19,7 @@ import {
   PollVote,
 } from "@/lib/firestore";
 import { isSafeExternalUrl } from "@/lib/url-safe";
+import { formatBytes } from "@/lib/format";
 import { RiPushpinFill, RiTeamLine, RiTimerFlashLine, RiBarChart2Line, RiFocus3Line } from "react-icons/ri";
 import QRCode from "qrcode";
 
@@ -210,9 +211,16 @@ export default function ProjectorPage() {
                 key={p.id}
                 className="p-6 bg-buttercup border-2 border-ochre/30 rounded-xl shadow-[--shadow-card]"
               >
-                <p className="text-2xl text-ink whitespace-pre-wrap leading-snug font-medium">
-                  {p.content}
-                </p>
+                {p.content?.trim() && (
+                  <p className="text-2xl text-ink whitespace-pre-wrap leading-snug font-medium">
+                    {p.content}
+                  </p>
+                )}
+                {(p.type === "file" || p.type === "image") && (
+                  <p className="text-lg text-ink mt-1">
+                    {p.type === "image" ? "🖼️" : "📎"} {p.fileMeta?.name || "첨부"}
+                  </p>
+                )}
                 <p className="text-sm text-ochre mt-3">— {p.authorName}</p>
               </div>
             ))}
@@ -241,9 +249,22 @@ export default function ProjectorPage() {
               >
                 {p.type === "image" && p.fileUrl && isSafeExternalUrl(p.fileUrl) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.fileUrl} alt={p.fileMeta?.name || "이미지"} className="w-full rounded-lg mb-2" />
+                  <img
+                    src={p.fileUrl}
+                    alt={p.fileMeta?.name || "이미지"}
+                    className="w-full max-h-72 object-cover rounded-lg mb-2"
+                  />
                 ) : (
-                  <p className="text-lg text-ink whitespace-pre-wrap leading-snug">{p.content}</p>
+                  p.content?.trim() && (
+                    <p className="text-lg text-ink whitespace-pre-wrap leading-snug line-clamp-8">{p.content}</p>
+                  )
+                )}
+                {/* 파일만 있는 게시물도 빈 카드가 되지 않도록 파일명 표시 */}
+                {p.type === "file" && (
+                  <p className="text-base text-ink">
+                    📎 {p.fileMeta?.name || "파일"}{" "}
+                    <span className="text-sm text-slate-text">({formatBytes(p.fileMeta?.size)})</span>
+                  </p>
                 )}
                 <p className="text-xs text-slate-text mt-3">— {p.authorName}</p>
               </div>
@@ -293,6 +314,12 @@ export default function ProjectorPage() {
             {spotlightPost.content && (
               <p className="text-3xl md:text-4xl text-ink whitespace-pre-wrap leading-snug font-medium">
                 {spotlightPost.content}
+              </p>
+            )}
+            {spotlightPost.type === "file" && (
+              <p className="text-2xl text-ink">
+                📎 {spotlightPost.fileMeta?.name || "파일"}{" "}
+                <span className="text-lg text-slate-text">({formatBytes(spotlightPost.fileMeta?.size)})</span>
               </p>
             )}
             <div className="flex items-center justify-between mt-6">

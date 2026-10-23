@@ -6,11 +6,13 @@ import path from "node:path";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { EMULATOR_PORTS } from "../../scripts/emulator-env.mjs";
 
 // npm 스크립트·Playwright 모두 저장소 루트에서 실행된다 (Playwright가 CJS로 변환하므로 import.meta 미사용)
 const ROOT = process.cwd();
 
 export const PROJECT_ID = "demo-padolet";
+export const STORAGE_ORIGIN = `http://127.0.0.1:${EMULATOR_PORTS.storage}`;
 export const SUPER_ADMIN = { email: "jongbin@gmail.com", name: "최고관리자" };
 export const TEACHER = { email: "teacher@example.com", name: "가상강사" };
 
@@ -35,26 +37,26 @@ export async function createTestEnv() {
     projectId: PROJECT_ID,
     firestore: {
       host: "127.0.0.1",
-      port: 8080,
+      port: EMULATOR_PORTS.firestore,
       rules: readFileSync(path.join(ROOT, "firestore.rules"), "utf8"),
     },
     storage: {
       host: "127.0.0.1",
-      port: 9199,
+      port: EMULATOR_PORTS.storage,
       rules: readFileSync(path.join(ROOT, "storage.rules"), "utf8"),
     },
   });
 }
 
 async function clearAuth() {
-  await fetch(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT_ID}/accounts`, {
+  await fetch(`http://127.0.0.1:${EMULATOR_PORTS.auth}/emulator/v1/projects/${PROJECT_ID}/accounts`, {
     method: "DELETE",
   });
 }
 
 /** Auth·Firestore·Storage 에뮬레이터가 모두 응답할 때까지 대기 (기동 순서가 제각각이라) */
 export async function waitForEmulators(timeoutMs = 120_000) {
-  const urls = ["http://127.0.0.1:9099", "http://127.0.0.1:8080", "http://127.0.0.1:9199"];
+  const urls = [EMULATOR_PORTS.auth, EMULATOR_PORTS.firestore, EMULATOR_PORTS.storage].map((p) => `http://127.0.0.1:${p}`);
   const deadline = Date.now() + timeoutMs;
   for (const url of urls) {
     for (;;) {

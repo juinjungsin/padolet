@@ -28,7 +28,7 @@ export default function Home() {
     <div className="flex-1 relative flex flex-col items-center justify-center px-4 py-16 overflow-hidden">
       <div className="relative z-10 text-center mb-10">
         <Image
-          src="/icon.png"
+          src="/logo.png"
           alt="padolet"
           width={108}
           height={108}

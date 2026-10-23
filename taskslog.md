@@ -366,3 +366,24 @@ Phase 12 — 교육 대시보드 개선 4단계: 교육 진행 (P1-01·03·04·0
   검증 (실행): 단위 68/68, 규칙 26/26, E2E 48/48, tsc·build 통과, ESLint 신규 문제 없음(기존 17→7건)
     - 교육생 2명 + 강사 1명 동시 사용(QA-03), 도움 요청·처리 독립(QA-04), 반복 클릭·재접속(QA-05),
       로컬 경로·외부 요청 없음(QA-09), 업로드 일부 실패·재시도 중복 없음(QA-08), 연결 끊김(QA-13), 역할 범위(QA-02)
+
+
+Phase 13 — 교육 대시보드 개선 운영 배포 (2026-10-23)
+
+  순서 (규칙 먼저 → 앱)
+    1. npx firebase-tools deploy --only firestore:rules --project jblet-3e6c3  (Storage 규칙은 변경 없음)
+       → 운영 규칙을 내려받아 저장소 firestore.rules와 동일함 확인
+    2. main fast-forward 8808503 → 19b87e5, push → Vercel 배포 success
+    3. 운영 읽기 전용 점검: 주요 경로 200(/admin/settings 신규 포함), CSP에 에뮬레이터 주소 없음,
+       에뮬레이터 로그인 미노출, 상단 메뉴 64px(간격 수정 반영), 390px 가로 넘침 없음, 페이지 오류 없음
+  태그: release-20261023 (배포본) / restore-20261023 (배포 전 복구 지점)
+
+  되돌리기
+    - 앱: Vercel 대시보드에서 이전 배포(HLoYaCf96xC1roWN3UrTKFo3y7Rn) Instant Rollback, 또는
+          git revert --no-commit restore-20261023..HEAD 후 커밋·push
+    - 규칙: JBlet\_backups\padolet_restore-point_20261023\firebase-rules\deployed_cloud.firestore.rules 를
+            firestore.rules로 덮어쓰고 규칙 배포 (규칙 → 앱 순서 주의: 되돌릴 때는 앱 먼저, 규칙 나중)
+
+  운영 확인 권장 (운영 데이터 쓰기가 필요해 자동 점검에서 제외)
+    - 테스트 세션 생성 → 휴대폰으로 첫 시도 입장 → 관리자 목록 누적 입장 증가 확인
+    - 실습 안내 지정 → 교육생 화면 상단 고정, 실습 완료·도움 필요, 질문 상태 변경, 보고서 PDF/MD

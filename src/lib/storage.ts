@@ -129,7 +129,9 @@ export function uploadFile(
   return { promise };
 }
 
-export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+// 파일 1개 상한 — storage.rules의 상한과 같아야 한다 (상한 크기까지 허용)
+export const MAX_FILE_SIZE_MB = 100;
+export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_FILES_AT_ONCE = 20;
 
 // XSS / 악성코드 배포 통로가 될 수 있는 형식은 차단. 강의장에서 흔히 쓰는 안전한 포맷만 허용.
@@ -189,7 +191,7 @@ export function validateFiles(files: File[]): { valid: File[]; errors: string[] 
 
   const valid = limited.filter((f) => {
     if (f.size > MAX_FILE_SIZE) {
-      errors.push(`${f.name} — 50MB 초과 (${formatBytes(f.size)})`);
+      errors.push(`${f.name} — ${MAX_FILE_SIZE_MB}MB 초과 (${formatBytes(f.size)})`);
       return false;
     }
     const mime = resolveMime(f);

@@ -14,7 +14,7 @@ import {
   editMessage,
   canEditWindow,
 } from "@/lib/firestore";
-import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
+import { MAX_FILE_SIZE_MB, uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import { formatBytes, formatTime } from "@/lib/format";
 import Menu from "@/components/ui/Menu";
@@ -656,8 +656,8 @@ export default function ChatPanel({
           <button
             type="button"
             onClick={handleFileClick}
-            aria-label="파일 첨부 (최대 50MB)"
-            title="파일 첨부 (최대 50MB)"
+            aria-label={`파일 첨부 (최대 ${MAX_FILE_SIZE_MB}MB)`}
+            title={`파일 첨부 (최대 ${MAX_FILE_SIZE_MB}MB)`}
             className="touch-target inline-flex items-center justify-center w-10 h-10 rounded-full text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer"
           >
             <RiAttachmentLine size={20} aria-hidden />

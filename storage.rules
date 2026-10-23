@@ -3,7 +3,7 @@ rules_version = '2';
 // padolet Firebase Storage 보안 규칙
 // 설계 원칙
 // - 인증된 사용자만 업로드 (Firestore Rules와 동일한 request.auth 검증)
-// - 사이즈 상한 50MB (앱의 MAX_FILE_SIZE와 일치)
+// - 사이즈 상한 100MB까지 허용 (앱의 MAX_FILE_SIZE와 일치)
 // - MIME 화이트리스트: image/audio/video 계열 + 문서 계열 + 텍스트 계열(HTML 포함)
 // - 텍스트 계열은 charset 파라미터 허용 (한글 깨짐 방지용으로 앱이 charset을 명시)
 // - SVG, JS 등 스크립트 실행 가능한 형식 명시 차단
@@ -22,7 +22,7 @@ service firebase.storage {
 
       // 업로드는 인증 + 사이즈 + MIME 검증
       allow write: if request.auth != null
-        && request.resource.size < 50 * 1024 * 1024
+        && request.resource.size <= 100 * 1024 * 1024
         && isAllowedContentType(request.resource.contentType);
 
       // 삭제는 별도 규칙 미허용 (앱에서 삭제 흐름 없음)

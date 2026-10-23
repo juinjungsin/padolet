@@ -13,7 +13,7 @@ import {
 import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { POST_KINDS } from "@/lib/post-kind";
 import { findLocalPath, LOCAL_PATH_NOTICE } from "@/lib/local-path";
-import { uploadFile, validateFiles } from "@/lib/storage";
+import { MAX_FILE_SIZE_MB, uploadFile, validateFiles } from "@/lib/storage";
 import Button from "@/components/ui/Button";
 import { RiAttachmentLine, RiRefreshLine } from "react-icons/ri";
 
@@ -222,7 +222,7 @@ export default function PostInput({
     setUploadProgress(0);
   }
 
-  // 이미지 + 일반 파일 업로드 — 대화창과 동일한 검증(위험 형식 차단, 50MB 제한) 적용
+  // 이미지 + 일반 파일 업로드 — 대화창과 동일한 검증(위험 형식 차단, 파일 1개 크기 제한) 적용
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0 || disabled) return;
@@ -265,8 +265,8 @@ export default function PostInput({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
-            title="파일 첨부 (이미지/문서/오디오/비디오, 최대 50MB)"
-            aria-label="파일 첨부 (최대 50MB)"
+            title={`파일 첨부 (이미지/문서/오디오/비디오, 최대 ${MAX_FILE_SIZE_MB}MB)`}
+            aria-label={`파일 첨부 (최대 ${MAX_FILE_SIZE_MB}MB)`}
             className="touch-target shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-xl border border-silver-mist bg-chalk-card text-slate-text hover:text-graphite cursor-pointer disabled:opacity-50"
           >
             <RiAttachmentLine size={18} aria-hidden />
@@ -367,8 +367,8 @@ export default function PostInput({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={loading || disabled}
-            title="파일 첨부 (이미지/문서/오디오/비디오, 최대 50MB)"
-            aria-label="파일 첨부 (최대 50MB)"
+            title={`파일 첨부 (이미지/문서/오디오/비디오, 최대 ${MAX_FILE_SIZE_MB}MB)`}
+            aria-label={`파일 첨부 (최대 ${MAX_FILE_SIZE_MB}MB)`}
             className="touch-target inline-flex items-center justify-center w-9 h-9 rounded-full text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer disabled:opacity-50"
           >
             <RiAttachmentLine size={18} aria-hidden />

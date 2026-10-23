@@ -64,7 +64,7 @@ describe("buildReportMarkdown", () => {
 
   it("고정·질문 표시, 댓글, 답장 인용을 유지한다", () => {
     expect(md).toContain("(고정됨)");
-    expect(md).toContain("(질문)");
+    expect(md).toContain("(질문 · 상태 접수)");
     expect(md).toContain("  - 강사 (오전 11:10): 답변입니다");
     expect(md).toContain("답장 본문 (답글 대상 — 익명#0001: 질문)");
   });

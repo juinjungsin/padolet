@@ -97,3 +97,21 @@ describe("세션 삭제 (deleteSession 하위 데이터 정리)", () => {
     await assertFails(deleteDoc(doc(student(), "sessions", SID)));
   });
 });
+
+describe("관리자 범위 (QA-02)", () => {
+  it("다른 위임 관리자는 남의 세션과 그 하위 데이터를 바꿀 수 없다", async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "admins", "other@example.com"), { email: "other@example.com" }));
+    const other = env.authenticatedContext("other-uid", { email: "other@example.com" }).firestore();
+    await assertFails(updateDoc(doc(other, "sessions", SID), { title: "가로채기" }));
+    await assertFails(updateDoc(doc(other, "sessions", SID, "posts", "post-b"), { pinned: true }));
+    await assertFails(deleteDoc(doc(other, "sessions", SID, "participants", "student-a")));
+    // 자기 세션은 만들 수 있다 (createdBy = 본인 uid)
+    await assertSucceeds(setDoc(doc(other, "sessions", "own"), { title: "내 세션", code: "OWN1", createdBy: "other-uid" }));
+    await assertFails(setDoc(doc(other, "sessions", "fake"), { title: "사칭", code: "FAKE", createdBy: OWNER.uid }));
+  });
+
+  it("등록되지 않은 로그인 사용자는 세션을 만들 수 없다", async () => {
+    const stranger = env.authenticatedContext("stranger", { email: "stranger@example.com" }).firestore();
+    await assertFails(setDoc(doc(stranger, "sessions", "s"), { title: "x", code: "XXXX", createdBy: "stranger" }));
+  });
+});

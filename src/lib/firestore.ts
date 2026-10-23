@@ -120,6 +120,8 @@ export interface Session {
   eventDate?: string | null;
   /** 관리자가 마지막으로 보드에 들어간 시각 — 관리자 목록 "최근 사용순" 정렬용 */
   lastUsedAt?: Timestamp | null;
+  /** 현재 실습 모듈 (세션당 하나, P1-01) */
+  activeModuleId?: string | null;
 }
 
 export interface Participant {
@@ -180,7 +182,20 @@ export interface Post {
   color?: PostColor;
   /** 댓글 수 (비정규화 — 접힌 상태에서도 표시하기 위함) */
   commentCount?: number;
+  /** 작성 당시의 현재 실습 모듈 (모듈 필터용) */
+  moduleId?: string | null;
+  /** 질문 처리 상태 (P1-03) — 미설정 질문은 접수로 읽는다. 답글(댓글)과 별도로 보존 */
+  questionStatus?: QuestionStatus;
+  resolvedAt?: Timestamp | null;
+  /** '저도 궁금해요' 누른 참여 식별자 목록 — 식별자당 1회 */
+  meToo?: string[];
+  /** 대화 메시지를 강사가 질문으로 옮긴 경우 원본 메시지와 원래 작성자 (원본은 대화에 그대로 남김) */
+  sourceMessageId?: string;
+  originalAuthorId?: string;
+  originalAuthorName?: string;
 }
+
+export type QuestionStatus = "open" | "answering" | "resolved";
 
 // 포스트잇 댓글 — posts/{postId}/comments 서브컬렉션
 export interface Comment {
@@ -202,6 +217,8 @@ export interface Message {
   createdAt: Timestamp;
   hidden?: boolean;
   editedAt?: Timestamp | null;
+  /** 강사가 이 메시지를 질문으로 옮겼을 때 생성된 게시물 id (중복 등록 방지) */
+  linkedPostId?: string;
 }
 
 // --- 세션 ---
@@ -281,7 +298,7 @@ export async function deleteSession(sessionId: string) {
 
   await deleteDocsInBatches(postsSnap.docs);
   await deleteDocsInBatches(pollsSnap.docs);
-  for (const sub of ["participants", "messages"]) {
+  for (const sub of ["participants", "messages", "modules", "progress", "helpRequests"]) {
     const snap = await getDocs(collection(db, "sessions", sessionId, sub));
     await deleteDocsInBatches(snap.docs);
   }

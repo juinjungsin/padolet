@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Post,
+  QuestionStatus,
   REACTIONS,
   ReactionKey,
   deletePost,
@@ -15,6 +16,8 @@ import {
 import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { formatBytes, formatTime } from "@/lib/format";
 import { getPostKind, isInstructorPost } from "@/lib/post-kind";
+import { isMyQuestion, meTooCount, QUESTION_STATUS_LABEL, QUESTION_STATUSES, questionStatus } from "@/lib/question";
+import { setQuestionStatus, toggleMeToo } from "@/lib/classroom";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import Card from "@/components/ui/Card";
 import Menu, { MenuItem } from "@/components/ui/Menu";
@@ -38,6 +41,10 @@ import {
   RiBookOpenLine,
   RiSparkling2Line,
   RiUserStarLine,
+  RiInboxLine,
+  RiChatSmile2Line,
+  RiCheckboxCircleLine,
+  RiQuestionAnswerLine,
 } from "react-icons/ri";
 
 export interface PostCardContext {
@@ -54,6 +61,13 @@ export interface PostCardContext {
 }
 
 const REACTION_LABEL: Record<ReactionKey, string> = { up: "좋아요", heart: "하트", clap: "박수" };
+
+// 질문 상태 — 색만으로 구분하지 않도록 아이콘·글자를 함께 표시
+const STATUS_STYLE: Record<QuestionStatus, { className: string; icon: React.ReactNode }> = {
+  open: { className: "bg-warn-bg text-warn", icon: <RiInboxLine size={12} aria-hidden /> },
+  answering: { className: "bg-buttercup text-ochre", icon: <RiChatSmile2Line size={12} aria-hidden /> },
+  resolved: { className: "bg-ok-bg text-sage", icon: <RiCheckboxCircleLine size={12} aria-hidden /> },
+};
 
 const footerButton =
   "touch-target inline-flex items-center gap-1 h-8 px-2 rounded-full text-xs text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer transition-colors";
@@ -134,8 +148,26 @@ export default function PostCard({ post, ctx }: { post: Post; ctx: PostCardConte
   const [editingText, setEditingText] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
 
+  const [meTooBusy, setMeTooBusy] = useState(false);
+  const [meTooError, setMeTooError] = useState("");
+
   const kind = getPostKind(post);
+  const qStatus = questionStatus(post);
+  const iAlsoWonder = !!currentUserId && (post.meToo ?? []).includes(currentUserId);
   const instructor = isInstructorPost(post, ctx.sessionOwnerId);
+
+  async function handleMeToo() {
+    if (!post.id || !currentUserId || locked) return;
+    setMeTooBusy(true);
+    setMeTooError("");
+    try {
+      // 식별자당 한 번 — 다시 누르면 취소 (서버 규칙도 본인 것만 추가·취소 허용)
+      await toggleMeToo(sessionId, post.id, currentUserId, !iAlsoWonder);
+    } catch {
+      setMeTooError("반영하지 못했습니다. 다시 눌러 주세요.");
+    }
+    setMeTooBusy(false);
+  }
   const isOwn = !!currentUserId && post.authorId === currentUserId;
   const editable = isOwn && !locked && canEditWindow(post.createdAt);
   const isSpotlighted = !!post.id && spotlightPostId === post.id;
@@ -348,6 +380,12 @@ export default function PostCard({ post, ctx }: { post: Post; ctx: PostCardConte
               질문
             </span>
           )}
+          {kind === "question" && (
+            <span data-testid="question-status" className={`${badge} ${STATUS_STYLE[qStatus].className}`}>
+              {STATUS_STYLE[qStatus].icon}
+              {QUESTION_STATUS_LABEL[qStatus]}
+            </span>
+          )}
           {kind === "material" && (
             <span className={`${badge} bg-blossom text-graphite`}>
               <RiBookOpenLine size={12} aria-hidden />
@@ -378,6 +416,52 @@ export default function PostCard({ post, ctx }: { post: Post; ctx: PostCardConte
       </div>
 
       {renderBody()}
+
+      {post.sourceMessageId && (
+        <p className="mt-2 text-xs text-slate-text">대화에서 옮긴 질문 · 원래 메시지는 대화에 그대로 있습니다</p>
+      )}
+
+      {kind === "question" && post.id && (
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {!isMyQuestion(post, currentUserId) && (
+            <button
+              onClick={handleMeToo}
+              disabled={!currentUserId || locked || meTooBusy}
+              aria-pressed={iAlsoWonder}
+              className={`touch-target inline-flex items-center gap-1 h-8 px-3 rounded-full text-sm font-semibold border transition-colors cursor-pointer disabled:cursor-default ${
+                iAlsoWonder ? "bg-graphite text-chalk-card border-graphite" : "bg-chalk-card text-ink border-silver-mist hover:border-graphite"
+              }`}
+            >
+              <RiQuestionAnswerLine size={14} aria-hidden />
+              저도 궁금해요 {meTooCount(post)}
+            </button>
+          )}
+          {isMyQuestion(post, currentUserId) && (
+            <span className="text-sm text-slate-text">내 질문 · 저도 궁금해요 {meTooCount(post)}</span>
+          )}
+          {isAdmin && (
+            <label className="ml-auto inline-flex items-center gap-1.5 text-sm text-slate-text">
+              처리 상태
+              <select
+                value={qStatus}
+                onChange={(e) => setQuestionStatus(sessionId, post.id!, e.target.value as QuestionStatus)}
+                className="touch-target h-8 px-2 text-sm text-ink bg-chalk-card border border-field-border rounded-full outline-none focus:border-graphite cursor-pointer"
+              >
+                {QUESTION_STATUSES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {meTooError && (
+            <p role="alert" className="basis-full text-sm text-terracotta">
+              {meTooError}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-1 mt-3 -ml-1">
         {REACTIONS.map((r) => {

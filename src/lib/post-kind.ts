@@ -42,6 +42,8 @@ export interface PostFilter {
   kind?: PostKind | null;
   instructorOnly?: boolean;
   color?: PostColor | null;
+  /** 현재 실습 모듈별 보기 */
+  moduleId?: string | null;
   sessionOwnerId?: string;
 }
 
@@ -60,7 +62,8 @@ export function filterPosts(posts: Post[], f: PostFilter): Post[] {
       matchesQuery(p, f.query ?? "") &&
       (!f.kind || getPostKind(p) === f.kind) &&
       (!f.instructorOnly || isInstructorPost(p, f.sessionOwnerId)) &&
-      (!f.color || (p.color || "yellow") === f.color)
+      (!f.color || (p.color || "yellow") === f.color) &&
+      (!f.moduleId || p.moduleId === f.moduleId)
   );
 }
 

@@ -326,3 +326,43 @@ Phase 11 — 교육 대시보드 개선 3단계: 자료 분류·검색(P1-02) + 
     report               유형·제목·사용 목적 출력
 
   검증 (실행): 단위 59/59, 규칙 14/14, E2E 36/36, tsc·build 통과, ESLint 신규 문제 없음(기존 10건 해소)
+
+
+Phase 12 — 교육 대시보드 개선 4단계: 교육 진행 (P1-01·03·04·06) (2026-10-23)
+
+  데이터 (추가 방식, 마이그레이션 없음)
+    sessions.activeModuleId          현재 실습 (세션당 하나)
+    sessions/{id}/modules/{mid}      모듈명·실습 제목·설명·자료 링크·보드 자료 연결·마감·제출 링크 (강사만 편집)
+    sessions/{id}/progress/{mid}__{uid}      진행 중/완료 — 이름 없이 uid·상태만, 문서 id 고정으로 반복 클릭 중복 없음
+    sessions/{id}/helpRequests/{mid}__{uid}  도움 요청 — 본인·강사만 열람, 확인·처리는 강사만, 진행 상태와 별개
+    posts    questionStatus(open|answering|resolved — 미설정 질문은 접수), resolvedAt, meToo[uid], moduleId,
+             sourceMessageId·originalAuthorId·originalAuthorName (대화 메시지를 질문으로 옮긴 경우)
+    messages linkedPostId (질문으로 등록됨 — 게시물 id를 메시지 id로 고정 + 트랜잭션으로 중복 생성 방지)
+
+  보안 규칙 변경 (배포 필요)
+    - modules: 읽기 공개, 쓰기 강사
+    - progress: 세션 참여자·강사 읽기, 본인 문서만 쓰기(키 제한·모듈 존재 확인), 본인 삭제(=선택 취소)
+    - helpRequests: 본인·강사 읽기(아직 없는 내 문서 조회 포함), 본인 생성·다시 요청·취소, 강사 확인·처리
+    - posts: 교육생은 접수 상태·빈 meToo로만 생성, 이동 표시 필드 금지, meToo는 본인 uid 하나만 추가·제거
+
+  변경
+    GuideBanner (신규)        현재 실습 고정 + 진행 중·실습 완료·도움 필요·질문하기, 교육생에게는 집계만
+    ModuleEditorModal (신규)  실습 안내 편집·현재 실습 지정/해제 (URL 검증)
+    QuestionsList (신규)      상태(미답변 기본 아님/선택)·내 질문·모듈·최신/공감순, 미답변 수
+    InstructorPanel (신규)    강사 진행 요약(도움 요청·미답변·완료/진행/응답 없음) + 상세(요청자 이름, 확인·처리 완료,
+                              교육생별 진행) — 강사 계정은 집계 제외
+    PostCard                  질문 상태 배지(아이콘+글자), '저도 궁금해요'(내 질문 제외), 강사 상태 변경·재열기
+    ChatPanel                 강사 메시지 메뉴(질문으로 등록·숨기기·차단) — 좁은 대화창 글자 단위 줄바꿈 해소
+    PostInput·ChatPanel       로컬 경로(file:/// obsidian://) 안내 → 파일 첨부 또는 그대로 게시 (P1-06)
+    BoardToolbar              모듈 필터, 좁은 화면 필터 접기, 질문 보기에서는 검색만
+    deleteSession             modules·progress·helpRequests까지 삭제
+    report                    질문 상태·저도 궁금해요 수·대화에서 옮김 표시
+
+  익명 식별의 한계 (요구사항 P1-03·QA-05 기록)
+    - 교육생 식별 = 브라우저의 Firebase 익명 계정. 같은 브라우저 재접속은 같은 사람(진행·저도 궁금해요 유지)
+    - 다른 기기·시크릿 창·브라우저 데이터 삭제 시 새 참여자로 집계되고 이전 진행 상태·'저도 궁금해요'와 연결되지 않음
+    - 같은 사람이 두 기기로 들어오면 '저도 궁금해요'를 두 번 누를 수 있음 (식별자당 1회 보장)
+
+  검증 (실행): 단위 68/68, 규칙 26/26, E2E 48/48, tsc·build 통과, ESLint 신규 문제 없음(기존 17→7건)
+    - 교육생 2명 + 강사 1명 동시 사용(QA-03), 도움 요청·처리 독립(QA-04), 반복 클릭·재접속(QA-05),
+      로컬 경로·외부 요청 없음(QA-09), 업로드 일부 실패·재시도 중복 없음(QA-08), 연결 끊김(QA-13), 역할 범위(QA-02)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Ref, useEffect, useImperativeHandle, useState, useRef } from "react";
 import {
   addPost,
   containsBannedWord,
@@ -12,11 +12,20 @@ import {
 } from "@/lib/firestore";
 import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { POST_KINDS } from "@/lib/post-kind";
+import { findLocalPath, LOCAL_PATH_NOTICE } from "@/lib/local-path";
 import { uploadFile, validateFiles } from "@/lib/storage";
 import Button from "@/components/ui/Button";
 import { RiAttachmentLine, RiRefreshLine } from "react-icons/ri";
 
+/** 보드 화면에서 입력 카드를 특정 유형으로 펼칠 때 사용 (예: 실습 안내의 '질문하기') */
+export interface PostInputHandle {
+  open: (kind?: PostKind) => void;
+}
+
 interface PostInputProps {
+  ref?: Ref<PostInputHandle>;
+  /** 현재 실습 모듈 — 새 게시물에 함께 기록 (모듈 필터용) */
+  moduleId?: string | null;
   sessionId: string;
   authorId: string;
   authorName: string;
@@ -38,6 +47,8 @@ const PLACEHOLDER: Record<PostKind, string> = {
 };
 
 export default function PostInput({
+  ref,
+  moduleId = null,
   sessionId,
   authorId,
   authorName,
@@ -62,9 +73,24 @@ export default function PostInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // 로컬 경로 안내 후 '그대로 게시'를 고른 본문 (본문이 바뀌면 다시 안내)
+  const [pathConfirmedFor, setPathConfirmedFor] = useState<string | null>(null);
+  const localPath = findLocalPath(`${title}\n${purpose}\n${content}`);
+  const needsPathConfirm = !!localPath && pathConfirmedFor !== content;
+  const [showPathNotice, setShowPathNotice] = useState(false);
+
   useEffect(() => {
     if (expanded) textareaRef.current?.focus();
   }, [expanded]);
+
+  useImperativeHandle(ref, () => ({
+    open(nextKind?: PostKind) {
+      if (nextKind) setKind(nextKind);
+      setExpanded(true);
+      // 이미 펼쳐져 있으면 effect가 다시 돌지 않으므로 직접 포커스
+      textareaRef.current?.focus();
+    },
+  }));
 
   const blocked = isNameBlocked(authorName, blockedNames);
   const disabled = blocked || locked;
@@ -83,6 +109,11 @@ export default function PostInput({
     };
     if (hasTitle && title.trim()) p.title = title.trim();
     if (kind === "prompt" && purpose.trim()) p.purpose = purpose.trim();
+    if (moduleId) p.moduleId = moduleId;
+    if (kind === "question") {
+      p.questionStatus = "open";
+      p.meToo = [];
+    }
     return p;
   }
 
@@ -111,11 +142,25 @@ export default function PostInput({
     return true;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!content.trim()) return;
     if (!checkCanPost(`${title} ${purpose} ${content}`)) return;
+    // 내 컴퓨터 경로는 다른 사람이 열 수 없다 — 첨부를 권하고, 그래도 원하면 게시 (P1-06)
+    if (needsPathConfirm) {
+      setShowPathNotice(true);
+      return;
+    }
+    await publishText();
+  }
 
+  /** 로컬 경로 안내에서 '그대로 게시'를 고른 경우 */
+  async function submitConfirmed() {
+    if (!content.trim() || !checkCanPost(`${title} ${purpose} ${content}`)) return;
+    await publishText();
+  }
+
+  async function publishText() {
     setLoading(true);
     const urlPattern = /^https?:\/\/\S+$/i;
     // 프롬프트는 URL 한 줄이어도 본문 그대로 (서식 유지)
@@ -369,6 +414,34 @@ export default function PostInput({
             </button>
           )}
         </div>
+        {showPathNotice && needsPathConfirm && (
+          <div role="alert" data-testid="local-path-notice" className="mt-2 p-3 rounded-lg border border-warn/30 bg-warn-bg text-sm text-warn">
+            <p className="font-semibold">{LOCAL_PATH_NOTICE}</p>
+            <p className="mt-0.5 text-ink break-all">감지된 경로: {localPath}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="touch-target inline-flex items-center gap-1 h-9 px-3 rounded-full bg-graphite text-chalk-card font-semibold cursor-pointer"
+              >
+                <RiAttachmentLine size={14} aria-hidden />
+                파일 첨부하기
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPathConfirmedFor(content);
+                  setShowPathNotice(false);
+                  // 상태 반영 전이므로 확인 플래그 대신 직접 게시
+                  submitConfirmed();
+                }}
+                className="touch-target inline-flex items-center h-9 px-3 rounded-full border border-warn/40 font-semibold text-warn hover:bg-chalk-card cursor-pointer"
+              >
+                그대로 게시
+              </button>
+            </div>
+          </div>
+        )}
         {error && (
           <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-sm text-terracotta">
             <span>{error}</span>

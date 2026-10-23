@@ -17,6 +17,8 @@ import {
 import { uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import { formatBytes, formatTime } from "@/lib/format";
+import Menu from "@/components/ui/Menu";
+import { findLocalPath, LOCAL_PATH_NOTICE } from "@/lib/local-path";
 import {
   RiSendPlaneFill,
   RiAttachmentLine,
@@ -28,6 +30,8 @@ import {
   RiEditLine,
   RiCheckLine,
   RiCloseLine,
+  RiQuestionLine,
+  RiMoreFill,
 } from "react-icons/ri";
 
 function renderTextWithLinks(text: string) {
@@ -65,6 +69,8 @@ interface ChatPanelProps {
   blockedNames?: string[];
   /** 보드 잠금 (참여자 기준) — true면 입력/전송 불가 */
   locked?: boolean;
+  /** 강사 — 메시지를 질문으로 등록 (P1-03, 원본 메시지는 그대로) */
+  onLinkQuestion?: (msg: Message & { id: string }) => Promise<void>;
 }
 
 export default function ChatPanel({
@@ -75,7 +81,12 @@ export default function ChatPanel({
   bannedWords = [],
   blockedNames = [],
   locked = false,
+  onLinkQuestion,
 }: ChatPanelProps) {
+  // 로컬 경로 안내 후 '그대로 보내기'를 고른 입력값 (입력이 바뀌면 다시 안내, P1-06)
+  const [pathConfirmedFor, setPathConfirmedFor] = useState<string | null>(null);
+  const [showPathNotice, setShowPathNotice] = useState(false);
+  const [linkingId, setLinkingId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const loadMoreRef = useRef<(() => Promise<void>) | null>(null);
@@ -130,8 +141,8 @@ export default function ChatPanel({
     inputRef.current?.focus();
   }
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSend(e?: React.FormEvent, confirmedPath = false) {
+    e?.preventDefault();
     if (!input.trim() || sending || locked) return;
 
     if (blocked) {
@@ -143,7 +154,15 @@ export default function ChatPanel({
       setSendError(`금칙어 "${hit}" 가 포함되어 게시할 수 없습니다.`);
       return;
     }
+    // 내 컴퓨터 경로는 다른 사람이 열 수 없다 — 안내 후 선택 (경로에 접속해 검사하지 않음)
+    if (findLocalPath(input) && !confirmedPath && pathConfirmedFor !== input) {
+      setSendError("");
+      setPathConfirmedFor(null);
+      setShowPathNotice(true);
+      return;
+    }
     setSendError("");
+    setShowPathNotice(false);
 
     setSending(true);
 
@@ -152,15 +171,31 @@ export default function ChatPanel({
       content = `┃ ${replyTo.authorName}: ${replyTo.content}\n${content}`;
     }
 
-    await addMessage(sessionId, {
-      authorId,
-      authorName,
-      content,
-      type: "text",
-    });
-    setInput("");
-    setReplyTo(null);
+    try {
+      await addMessage(sessionId, {
+        authorId,
+        authorName,
+        content,
+        type: "text",
+      });
+      setInput("");
+      setReplyTo(null);
+    } catch {
+      // 입력은 지우지 않아 다시 보낼 수 있게 둔다
+      setSendError("메시지를 보내지 못했습니다. 연결 상태를 확인하고 다시 보내 주세요.");
+    }
     setSending(false);
+  }
+
+  async function handleLinkQuestion(msg: Message) {
+    if (!onLinkQuestion || !msg.id) return;
+    setLinkingId(msg.id);
+    try {
+      await onLinkQuestion(msg as Message & { id: string });
+    } catch {
+      alert("질문으로 등록하지 못했습니다.");
+    }
+    setLinkingId(null);
   }
 
   async function handleBlock(name: string) {
@@ -358,7 +393,7 @@ export default function ChatPanel({
           </div>
         )}
         {messages.map((msg) => (
-          <div key={msg.id} className={`${msg.authorId === authorId ? "text-right" : ""}`}>
+          <div key={msg.id} data-message-id={msg.id} className={`${msg.authorId === authorId ? "text-right" : ""}`}>
             <p className="text-xs font-semibold text-slate-text mb-1">{msg.authorName}</p>
             {msg.hidden ? (
               <div
@@ -440,8 +475,8 @@ export default function ChatPanel({
                 )}
               </div>
             )}
-            <div className={`flex items-center gap-2 mt-0.5 ${msg.authorId === authorId ? "justify-end" : ""}`}>
-              <p className="text-xs text-ash-text">
+            <div className={`flex flex-wrap items-center gap-x-1.5 mt-0.5 ${msg.authorId === authorId ? "justify-end" : ""}`}>
+              <p className="text-xs text-ash-text whitespace-nowrap">
                 {formatTime(msg.createdAt)}
                 {msg.editedAt && <span className="ml-1 italic">· 수정됨</span>}
               </p>
@@ -456,7 +491,7 @@ export default function ChatPanel({
                       setCopiedId(`failed:${msg.id}`);
                     }
                   }}
-                  className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-obsidian cursor-pointer transition-colors"
+                  className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-obsidian cursor-pointer transition-colors whitespace-nowrap"
                 >
                   <RiFileCopyLine size={10} />
                   {copiedId === msg.id ? "복사됨" : copiedId === `failed:${msg.id}` ? "복사 실패 — 다시 시도" : "복사"}
@@ -464,7 +499,7 @@ export default function ChatPanel({
               )}
               <button
                 onClick={() => handleReply(msg)}
-                className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-obsidian cursor-pointer transition-colors"
+                className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-obsidian cursor-pointer transition-colors whitespace-nowrap"
               >
                 <RiReplyLine size={10} />
                 답글
@@ -478,31 +513,55 @@ export default function ChatPanel({
                   <button
                     onClick={() => startEdit(msg)}
                     title="수정 (작성 후 5분 이내)"
-                    className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-graphite cursor-pointer transition-colors"
+                    className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-graphite cursor-pointer transition-colors whitespace-nowrap"
                   >
                     <RiEditLine size={10} />
                     수정
                   </button>
                 )}
-              {isAdmin && (
-                <button
-                  onClick={() => handleToggleHide(msg)}
-                  className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-graphite cursor-pointer transition-colors"
-                  title={msg.hidden ? "다시 보이기" : "메시지 숨기기"}
-                >
-                  {msg.hidden ? <RiEyeLine size={10} /> : <RiEyeOffLine size={10} />}
-                  {msg.hidden ? "다시 보이기" : "숨기기"}
-                </button>
+              {msg.linkedPostId && (
+                <span className="inline-flex items-center gap-0.5 h-7 px-1 text-xs font-semibold text-ochre whitespace-nowrap">
+                  <RiQuestionLine size={10} aria-hidden />
+                  질문으로 등록됨
+                </span>
               )}
-              {isAdmin && msg.authorId !== authorId && (
-                <button
-                  onClick={() => handleBlock(msg.authorName)}
-                  className="touch-target flex items-center gap-0.5 h-7 px-1 text-xs text-slate-text hover:text-terracotta cursor-pointer transition-colors"
-                  title={`${msg.authorName} 차단`}
-                >
-                  <RiUserForbidLine size={10} />
-                  차단
-                </button>
+              {/* 강사 전용 조작은 메뉴로 묶어 좁은 대화창에서도 글자 단위로 줄바꿈되지 않게 한다 */}
+              {isAdmin && (
+                <Menu
+                  label="메시지 메뉴"
+                  align={msg.authorId === authorId ? "right" : "left"}
+                  items={[
+                    ...(onLinkQuestion && msg.type === "text" && !msg.hidden && !msg.linkedPostId
+                      ? [
+                          {
+                            key: "question",
+                            label: linkingId === msg.id ? "등록 중..." : "질문으로 등록 (원본 유지)",
+                            icon: <RiQuestionLine size={16} />,
+                            onSelect: () => handleLinkQuestion(msg),
+                          },
+                        ]
+                      : []),
+                    {
+                      key: "hide",
+                      label: msg.hidden ? "다시 보이기" : "숨기기",
+                      icon: msg.hidden ? <RiEyeLine size={16} /> : <RiEyeOffLine size={16} />,
+                      onSelect: () => handleToggleHide(msg),
+                    },
+                    ...(msg.authorId !== authorId
+                      ? [
+                          {
+                            key: "block",
+                            label: `${msg.authorName} 차단`,
+                            icon: <RiUserForbidLine size={16} />,
+                            onSelect: () => handleBlock(msg.authorName),
+                            danger: true,
+                          },
+                        ]
+                      : []),
+                  ]}
+                  triggerClassName="touch-target inline-flex items-center justify-center w-7 h-7 rounded-full text-slate-text hover:text-graphite hover:bg-vellum cursor-pointer"
+                  trigger={<RiMoreFill size={14} aria-hidden />}
+                />
               )}
             </div>
           </div>
@@ -536,6 +595,34 @@ export default function ChatPanel({
           >
             <RiCloseLine size={16} aria-hidden />
           </button>
+        </div>
+      )}
+
+      {showPathNotice && findLocalPath(input) && (
+        <div role="alert" data-testid="chat-local-path-notice" className="px-4 py-2 border-t border-silver-mist bg-warn-bg text-sm text-warn">
+          <p className="font-semibold">{LOCAL_PATH_NOTICE}</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowPathNotice(false);
+                handleFileClick();
+              }}
+              className="touch-target inline-flex items-center h-8 px-3 rounded-full bg-graphite text-chalk-card font-semibold cursor-pointer"
+            >
+              파일 첨부하기
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPathConfirmedFor(input);
+                handleSend(undefined, true);
+              }}
+              className="touch-target inline-flex items-center h-8 px-3 rounded-full border border-warn/40 font-semibold cursor-pointer"
+            >
+              그대로 보내기
+            </button>
+          </div>
         </div>
       )}
 

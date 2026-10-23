@@ -11,7 +11,20 @@ import PostGrid from "@/components/board/PostGrid";
 import MaterialsList from "@/components/board/MaterialsList";
 import type { PostCardContext } from "@/components/board/PostCard";
 import type { PostFilter, PostSortMode } from "@/lib/post-kind";
-import PostInput from "@/components/board/PostInput";
+import PostInput, { PostInputHandle } from "@/components/board/PostInput";
+import QuestionsList, { QuestionViewState } from "@/components/board/QuestionsList";
+import GuideBanner from "@/components/board/GuideBanner";
+import ModuleEditorModal from "@/components/board/ModuleEditorModal";
+import { InstructorPanelModal, InstructorSummary } from "@/components/board/InstructorPanel";
+import { countUnanswered } from "@/lib/question";
+import { HelpRequest, Module, pendingHelp, Progress, summarizeProgress } from "@/lib/practice";
+import {
+  linkMessageAsQuestion,
+  onHelpRequests,
+  onModuleProgress,
+  onModules,
+  onMyHelp,
+} from "@/lib/classroom";
 import ChatPanel from "@/components/chat/ChatPanel";
 import AnnouncementModal from "@/components/board/AnnouncementModal";
 import BoardToolbar from "@/components/board/BoardToolbar";
@@ -33,18 +46,28 @@ import {
   isSuperAdmin,
   touchSessionLastUsed,
   HEARTBEAT_SECONDS,
+  Message,
+  Participant,
   Post,
   PostColor,
   PostKind,
   Session,
 } from "@/lib/firestore";
-import { RiChat3Line, RiStickyNoteLine, RiLockFill, RiLayoutMasonryLine, RiBookOpenLine } from "react-icons/ri";
+import {
+  RiChat3Line,
+  RiStickyNoteLine,
+  RiLockFill,
+  RiLayoutMasonryLine,
+  RiBookOpenLine,
+  RiQuestionLine,
+} from "react-icons/ri";
 
-type BoardView = "board" | "materials";
+type BoardView = "board" | "materials" | "questions";
 
 const VIEW_TABS: { key: BoardView; label: string; icon: React.ReactNode }[] = [
   { key: "board", label: "보드", icon: <RiLayoutMasonryLine size={16} aria-hidden /> },
   { key: "materials", label: "자료", icon: <RiBookOpenLine size={16} aria-hidden /> },
+  { key: "questions", label: "질문", icon: <RiQuestionLine size={16} aria-hidden /> },
 ];
 
 interface ParticipantInfo {
@@ -61,7 +84,22 @@ export default function BoardPage() {
   const sessionId = params.sessionId as string;
 
   const [session, setSession] = useState<Session | null>(null);
-  const [participantCount, setParticipantCount] = useState(0);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const participantCount = participants.length;
+  const [modules, setModules] = useState<Module[]>([]);
+  const [progress, setProgress] = useState<Progress[]>([]);
+  const [helpRequests, setHelpRequests] = useState<(HelpRequest & { id: string })[]>([]);
+  const [myHelp, setMyHelp] = useState<HelpRequest | null>(null);
+  const [moduleFilter, setModuleFilter] = useState<string | null>(null);
+  const [questionView, setQuestionView] = useState<QuestionViewState>({
+    status: "all",
+    mineOnly: false,
+    moduleId: null,
+    sort: "latest",
+  });
+  const [showModuleEditor, setShowModuleEditor] = useState(false);
+  const [showInstructorPanel, setShowInstructorPanel] = useState(false);
+  const composerRef = useRef<PostInputHandle>(null);
   const [participant, setParticipant] = useState<ParticipantInfo | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,9 +204,48 @@ export default function BoardPage() {
 
   useEffect(() => {
     if (!sessionId) return;
-    const unsub = onParticipants(sessionId, (p) => setParticipantCount(p.length));
+    const unsub = onParticipants(sessionId, setParticipants);
     return () => unsub();
   }, [sessionId]);
+
+  // 실습 안내 (P1-01)
+  useEffect(() => {
+    if (!sessionId) return;
+    const unsub = onModules(sessionId, setModules);
+    return () => unsub();
+  }, [sessionId]);
+
+  const activeModuleId = session?.activeModuleId ?? null;
+  const activeModule = modules.find((m) => m.id === activeModuleId) ?? null;
+
+  // 관리자 판별 — 신규 보드(createdBy=Firebase uid), 구 보드(createdBy=NextAuth id), super_admin 모두 지원
+  const legacyAdminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
+  const isAdmin =
+    !!session &&
+    ((!!firebaseUid && session.createdBy === firebaseUid) ||
+      (!!legacyAdminId && session.createdBy === legacyAdminId) ||
+      isSuperAdmin(authSession?.user?.email));
+
+  // 도움 요청 — 강사는 전체(이름 포함), 교육생은 내 요청만 (P1-04)
+  useEffect(() => {
+    if (!sessionId || !isAdmin) return;
+    return onHelpRequests(sessionId, setHelpRequests);
+  }, [sessionId, isAdmin]);
+
+  useEffect(() => {
+    if (!sessionId || isAdmin || !activeModuleId || !participant) return;
+    return onMyHelp(sessionId, activeModuleId, participant.participantId, setMyHelp);
+  }, [sessionId, isAdmin, activeModuleId, participant]);
+
+  // 현재 실습의 진행 상태 (이름 없음 — 집계용) — 참여 등록 후에만 읽을 수 있다
+  useEffect(() => {
+    if (!sessionId || !activeModuleId || !participant) return;
+    const unsub = onModuleProgress(sessionId, activeModuleId, setProgress);
+    return () => {
+      unsub();
+      setProgress([]);
+    };
+  }, [sessionId, activeModuleId, participant]);
 
   // 게시물 구독은 여기서 한 번만 — 보드·자료 보기와 입력창(배치 순서)이 함께 쓴다
   useEffect(() => {
@@ -242,13 +319,6 @@ export default function BoardPage() {
     );
   }
 
-  // 관리자 판별 — 신규 보드(createdBy=Firebase uid), 구 보드(createdBy=NextAuth id), super_admin 모두 지원
-  const legacyAdminId = (authSession?.user as Record<string, unknown>)?.id as string | undefined;
-  const isAdmin =
-    !!session &&
-    ((!!firebaseUid && session.createdBy === firebaseUid) ||
-      (!!legacyAdminId && session.createdBy === legacyAdminId) ||
-      isSuperAdmin(authSession?.user?.email));
   const bannedWords = session?.bannedWords || [];
   const blockedNames = session?.blockedNames || [];
   const unreadChat =
@@ -262,8 +332,32 @@ export default function BoardPage() {
     kind: kindFilter,
     instructorOnly,
     color: colorFilter,
+    moduleId: moduleFilter,
     sessionOwnerId: session?.createdBy,
   };
+  // 진행 집계 대상 = 강사·관리자 계정을 뺀 교육생 (세션 소유자, 지금 보고 있는 관리자)
+  const learners = participants.filter(
+    (p) => p.id !== session?.createdBy && !(isAdmin && p.id === participant.participantId)
+  );
+  const progressSummary = activeModuleId ? summarizeProgress(progress, activeModuleId, learners.length) : null;
+  const unansweredCount = posts ? countUnanswered(posts) : 0;
+
+  async function handleLinkQuestion(msg: Message & { id: string }) {
+    await linkMessageAsQuestion(
+      sessionId,
+      msg,
+      { uid: participant!.participantId, name: participant!.name },
+      { gridIndex: posts?.length ?? 0, moduleId: activeModuleId }
+    );
+  }
+
+  function askQuestion() {
+    setView("questions");
+    setMobileTab("board");
+    mobileTabRef.current = "board";
+    composerRef.current?.open("question");
+  }
+
   const cardContext: PostCardContext = {
     sessionId,
     isAdmin,
@@ -345,7 +439,32 @@ export default function BoardPage() {
           aria-label="보드"
           className={`${mobileTab === "board" ? "flex" : "hidden"} lg:flex flex-1 min-w-0 flex-col overflow-y-auto`}
         >
-          {/* 보기 전환 — 같은 게시물을 보드(카드 벽) 또는 자료 목록으로 */}
+          {isAdmin && (
+            <InstructorSummary
+              helpCount={pendingHelp(helpRequests).length}
+              unansweredCount={unansweredCount}
+              summary={progressSummary}
+              onOpenDetails={() => setShowInstructorPanel(true)}
+              onShowUnanswered={() => {
+                setQuestionView((q) => ({ ...q, status: "open" }));
+                setView("questions");
+              }}
+            />
+          )}
+          <GuideBanner
+            sessionId={sessionId}
+            isAdmin={isAdmin}
+            module={activeModule}
+            posts={posts}
+            progress={progress}
+            myHelp={myHelp}
+            participantId={participant.participantId}
+            participantName={participant.name}
+            participantCount={learners.length}
+            onAskQuestion={askQuestion}
+            onEdit={() => setShowModuleEditor(true)}
+          />
+          {/* 보기 전환 — 같은 게시물을 보드(카드 벽)·자료 목록·질문 목록으로 */}
           <div role="tablist" aria-label="게시물 보기" className="flex gap-1 px-4 pt-3 bg-parchment">
             {VIEW_TABS.map((t) => (
               <button
@@ -363,10 +482,20 @@ export default function BoardPage() {
               >
                 {t.icon}
                 {t.label}
+                {t.key === "questions" && unansweredCount > 0 && (
+                  <span
+                    className="min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-warn text-chalk-card text-xs font-bold"
+                    aria-label={`미답변 ${unansweredCount}개`}
+                  >
+                    {unansweredCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
           <PostInput
+            ref={composerRef}
+            moduleId={activeModuleId}
             sessionId={sessionId}
             authorId={participant.participantId}
             authorName={participant.name}
@@ -389,12 +518,25 @@ export default function BoardPage() {
             onInstructorOnlyChange={setInstructorOnly}
             colorFilter={colorFilter}
             onColorFilterChange={setColorFilter}
+            modules={modules}
+            searchOnly={view === "questions"}
+            moduleFilter={moduleFilter}
+            onModuleFilterChange={setModuleFilter}
           />
           <div id="view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`}>
             {view === "board" ? (
               <PostGrid posts={posts} filter={postFilter} sortMode={sortMode} ctx={cardContext} />
-            ) : (
+            ) : view === "materials" ? (
               <MaterialsList posts={posts} filter={postFilter} sortMode={sortMode} />
+            ) : (
+              <QuestionsList
+                posts={posts}
+                query={deferredQuery}
+                state={questionView}
+                onStateChange={setQuestionView}
+                modules={modules}
+                ctx={cardContext}
+              />
             )}
           </div>
         </main>
@@ -411,6 +553,7 @@ export default function BoardPage() {
             bannedWords={bannedWords}
             blockedNames={blockedNames}
             locked={lockedForMe}
+            onLinkQuestion={isAdmin ? handleLinkQuestion : undefined}
           />
         </aside>
       </div>
@@ -479,6 +622,31 @@ export default function BoardPage() {
           open={showTimerModal}
           onClose={() => setShowTimerModal(false)}
           sessionId={sessionId}
+        />
+      )}
+
+      {isAdmin && (
+        <ModuleEditorModal
+          open={showModuleEditor}
+          onClose={() => setShowModuleEditor(false)}
+          sessionId={sessionId}
+          modules={modules}
+          activeModuleId={activeModuleId}
+          posts={posts}
+        />
+      )}
+
+      {isAdmin && (
+        <InstructorPanelModal
+          open={showInstructorPanel}
+          onClose={() => setShowInstructorPanel(false)}
+          sessionId={sessionId}
+          adminUid={participant.participantId}
+          helpRequests={helpRequests}
+          modules={modules}
+          activeModule={activeModule}
+          progress={progress}
+          learners={learners}
         />
       )}
     </div>

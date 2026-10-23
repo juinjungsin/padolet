@@ -107,7 +107,22 @@ service cloud.firestore {
         }
         function adminOnlyPostFields() {
           return request.resource.data.get('kind', 'general') == 'notice'
-            || request.resource.data.get('authorRole', 'participant') == 'admin';
+            || request.resource.data.get('authorRole', 'participant') == 'admin'
+            // 질문 상태는 접수로만 시작, '저도 궁금해요'는 빈 채로, 대화→질문 이동 표시는 강사만 (P1-03)
+            || request.resource.data.get('questionStatus', 'open') != 'open'
+            || request.resource.data.get('meToo', []).size() > 0
+            || request.resource.data.keys().hasAny(['sourceMessageId', 'originalAuthorId', 'originalAuthorName', 'resolvedAt']);
+        }
+
+        // '저도 궁금해요' — 본인 식별자 하나만 추가하거나 빼는 변경 (P1-03)
+        function onlyOwnMeTooToggle() {
+          let before = resource.data.get('meToo', []).toSet();
+          let after = request.resource.data.get('meToo', []).toSet();
+          let added = after.difference(before);
+          let removed = before.difference(after);
+          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['meToo'])
+            && ((added.size() == 1 && added.hasOnly([request.auth.uid]) && removed.size() == 0)
+                || (removed.size() == 1 && removed.hasOnly([request.auth.uid]) && added.size() == 0));
         }
 
         // 세션 참여자만 작성 (보드 잠금 중에는 관리자만). authorId는 반드시 본인 uid
@@ -134,6 +149,9 @@ service cloud.firestore {
               && !isBoardLocked(sessionId))
           || (isSessionParticipant(sessionId)
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+              && !isBoardLocked(sessionId))
+          || (isSessionParticipant(sessionId)
+              && onlyOwnMeTooToggle()
               && !isBoardLocked(sessionId));
 
         // 삭제: 본인(잠금 중 제외) 또는 세션 관리자
@@ -178,6 +196,63 @@ service cloud.firestore {
               && !isBoardLocked(sessionId));
 
         // 삭제: 세션 관리자만
+        allow delete: if isSessionAdmin(sessionId);
+      }
+
+      // ---------- modules (현재 실습 안내, P1-01) ----------
+      match /modules/{moduleId} {
+        allow read: if true;
+        allow create, update, delete: if isSessionAdmin(sessionId);
+      }
+
+      // 문서 ID = {moduleId}__{uid} — 같은 실습·같은 참여자는 문서 하나 (반복 클릭으로 집계 증가 없음)
+      function isOwnMemberDoc(docId) {
+        return isAuthed() && docId.split('__').size() == 2 && docId.split('__')[1] == request.auth.uid;
+      }
+
+      // ---------- progress (실습 진행 상태, P1-04) ----------
+      // 이름 없이 uid·상태만 저장. 교육생에게는 집계만 보여 주므로 세션 참여자·관리자 열람
+      match /progress/{progressId} {
+        allow read: if isSessionParticipant(sessionId) || isSessionAdmin(sessionId);
+
+        allow create, update: if isOwnMemberDoc(progressId)
+          && isSessionParticipant(sessionId)
+          && progressId == request.resource.data.moduleId + '__' + request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.status in ['doing', 'done']
+          && request.resource.data.keys().hasOnly(['moduleId', 'uid', 'status', 'updatedAt'])
+          && exists(/databases/$(database)/documents/sessions/$(sessionId)/modules/$(request.resource.data.moduleId));
+
+        // 상태 취소 = 본인 문서 삭제
+        allow delete: if isOwnMemberDoc(progressId) || isSessionAdmin(sessionId);
+      }
+
+      // ---------- helpRequests (도움 요청, P1-04) ----------
+      // 요청자 식별 정보는 본인과 강사만 열람. 처리(확인·완료)는 강사만, 진행 상태와는 별개 문서
+      match /helpRequests/{helpId} {
+        allow read: if isOwnMemberDoc(helpId) || isSessionAdmin(sessionId);
+
+        allow create: if isOwnMemberDoc(helpId)
+          && isSessionParticipant(sessionId)
+          && helpId == request.resource.data.moduleId + '__' + request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.status == 'open'
+          && request.resource.data.keys().hasOnly(['moduleId', 'uid', 'name', 'status', 'requestedAt']);
+
+        // 본인: 다시 요청(open) 또는 취소(cancelled) — 처리 기록은 비운다
+        // 강사: 확인·처리 완료·다시 열기
+        allow update: if (isOwnMemberDoc(helpId)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'requestedAt', 'acknowledgedAt', 'resolvedAt', 'resolvedBy'])
+              && request.resource.data.status in ['open', 'cancelled']
+              && request.resource.data.get('acknowledgedAt', null) == null
+              && request.resource.data.get('resolvedAt', null) == null
+              && request.resource.data.get('resolvedBy', null) == null)
+          || (isSessionAdmin(sessionId)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'acknowledgedAt', 'resolvedAt', 'resolvedBy'])
+              && request.resource.data.status in ['open', 'acknowledged', 'resolved']);
+
         allow delete: if isSessionAdmin(sessionId);
       }
 

@@ -61,6 +61,28 @@ for (const width of WIDTHS) {
     await expectNoHorizontalOverflow(admin, "관리자 보드");
     await expectNavIntact(admin, "관리자 보드");
     await expect(admin.getByRole("button", { name: "강사 도구" })).toBeInViewport();
+    // 대화·보드 영역 버튼 글자가 여러 줄로 끊기지 않아야 한다 (텍스트 줄 수를 직접 센다 —
+    // 버튼 높이가 고정이면 글자가 넘쳐도 박스 높이는 그대로라 높이로는 못 잡는다)
+    const wrapped = await admin.evaluate(() => {
+      const bad: string[] = [];
+      const areas = document.querySelectorAll('[data-testid="chat-panel"], main#board-panel');
+      areas.forEach((area) =>
+        area.querySelectorAll("button").forEach((btn) => {
+          if (!(btn as HTMLElement).offsetParent) return;
+          const tops = new Set<number>();
+          const walker = document.createTreeWalker(btn, NodeFilter.SHOW_TEXT);
+          for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+            if (!n.textContent?.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(n);
+            for (const r of Array.from(range.getClientRects())) tops.add(Math.round(r.top / 4));
+          }
+          if (tops.size > 1) bad.push(btn.textContent?.trim() ?? "");
+        })
+      );
+      return bad;
+    });
+    expect(wrapped, `${width}px 줄바꿈된 버튼`).toEqual([]);
     await admin.screenshot({ path: test.info().outputPath(`${width}-board-admin.png`) });
 
     await admin.goto(`/admin/report/${SEED.main.id}`);

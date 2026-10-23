@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc } from "firebase/firestore";
 import { createTestEnv, seed, SEED, SUPER_ADMIN } from "../support/seed.mjs";
 import { loginAsAdmin } from "./helpers";
 
@@ -22,7 +22,16 @@ test("보고서 PDF 출력 — 액션 버튼은 숨기고 첨부·본문은 포�
   await page.pdf({ path: test.info().outputPath("report.pdf"), format: "A4", printBackground: true });
 });
 
-test("세션 삭제 시 댓글·투표 응답까지 함께 삭제된다", async ({ page }) => {
+test("세션 삭제 시 댓글·투표 응답·실습 안내·진행·도움 요청까지 함께 삭제된다", async ({ page }) => {
+  const setup = await createTestEnv();
+  await setup.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "sessions", SEED.main.id, "modules", "m1"), { title: "1교시", order: 0 });
+    await setDoc(doc(db, "sessions", SEED.main.id, "progress", "m1__p-kim1"), { moduleId: "m1", uid: "p-kim1", status: "done" });
+    await setDoc(doc(db, "sessions", SEED.main.id, "helpRequests", "m1__p-lee"), { moduleId: "m1", uid: "p-lee", status: "open" });
+  });
+  await setup.cleanup();
+
   await loginAsAdmin(page, SUPER_ADMIN.email);
   const row = page.getByTestId(`session-row-${SEED.main.id}`);
   await row.getByRole("button", { name: /더보기/ }).click();
@@ -43,6 +52,9 @@ test("세션 삭제 시 댓글·투표 응답까지 함께 삭제된다", async 
       [...base, "polls"],
       [...base, "posts", "post-question", "comments"],
       [...base, "polls", "poll1", "votes"],
+      [...base, "modules"],
+      [...base, "progress"],
+      [...base, "helpRequests"],
     ]) {
       const snap = await getDocs(collection(db, path.join("/")));
       expect(snap.size, path.join("/")).toBe(0);

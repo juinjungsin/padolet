@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { POST_COLORS, PostColor, PostKind } from "@/lib/firestore";
 import { POST_COLOR_STYLES } from "@/lib/post-colors";
 import { METRICS } from "@/lib/metrics";
 import { POST_KINDS, PostSortMode, SORT_RULE_HELP } from "@/lib/post-kind";
-import { RiSearchLine, RiCloseLine, RiTeamLine, RiUserStarLine } from "react-icons/ri";
+import type { Module } from "@/lib/practice";
+import { RiSearchLine, RiCloseLine, RiTeamLine, RiUserStarLine, RiFilter3Line } from "react-icons/ri";
 
 interface Props {
   searchQuery: string;
@@ -19,6 +21,12 @@ interface Props {
   onInstructorOnlyChange: (v: boolean) => void;
   colorFilter: PostColor | null;
   onColorFilterChange: (c: PostColor | null) => void;
+  /** 실습 모듈이 있을 때만 모듈 필터 표시 */
+  modules?: Module[];
+  moduleFilter?: string | null;
+  onModuleFilterChange?: (id: string | null) => void;
+  /** 질문 보기처럼 자체 필터가 있는 화면 — 검색만 표시 */
+  searchOnly?: boolean;
 }
 
 const pill =
@@ -39,7 +47,13 @@ export default function BoardToolbar({
   onInstructorOnlyChange,
   colorFilter,
   onColorFilterChange,
+  modules = [],
+  moduleFilter = null,
+  onModuleFilterChange,
+  searchOnly = false,
 }: Props) {
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilterCount = [kindFilter, moduleFilter, colorFilter, instructorOnly || null].filter(Boolean).length;
   return (
     <div className="px-4 py-3 border-b border-silver-mist bg-chalk-card flex items-center gap-2 flex-wrap">
       <div className="basis-full sm:basis-auto flex-1 min-w-[200px] relative">
@@ -67,6 +81,23 @@ export default function BoardToolbar({
         )}
       </div>
 
+      {!searchOnly && (
+        <button
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          aria-expanded={showFilters}
+          aria-controls="board-filters"
+          className={`${pill} sm:hidden bg-chalk-card text-ink border-silver-mist`}
+        >
+          <RiFilter3Line size={16} aria-hidden />
+          필터{activeFilterCount > 0 ? ` ${activeFilterCount}` : ""}
+        </button>
+      )}
+
+      {/* 좁은 화면에서는 필터를 접어 두고, sm 이상에서는 래퍼 없이 한 줄에 배치 (sm:contents) */}
+      {!searchOnly && (
+      <div id="board-filters" className={`${showFilters ? "flex" : "hidden"} sm:contents basis-full flex-wrap items-center gap-2`}>
+
       <select
         value={kindFilter ?? ""}
         onChange={(e) => onKindFilterChange((e.target.value || null) as PostKind | null)}
@@ -80,6 +111,22 @@ export default function BoardToolbar({
           </option>
         ))}
       </select>
+
+      {modules.length > 0 && onModuleFilterChange && (
+        <select
+          value={moduleFilter ?? ""}
+          onChange={(e) => onModuleFilterChange(e.target.value || null)}
+          aria-label="모듈 필터"
+          className={select}
+        >
+          <option value="">모든 모듈</option>
+          {modules.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.title}
+            </option>
+          ))}
+        </select>
+      )}
 
       <select
         value={sortMode}
@@ -131,6 +178,9 @@ export default function BoardToolbar({
           </button>
         ))}
       </div>
+
+      </div>
+      )}
 
       <button
         onClick={onOpenParticipants}

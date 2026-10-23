@@ -16,7 +16,6 @@ import {
   archiveSession,
   createSession,
   deleteSession,
-  duplicateSession,
   endSession,
   getAllSessions,
   getParticipantCount,
@@ -34,6 +33,8 @@ import {
 } from "@/lib/firestore";
 import { auth as firebaseAuth, USE_EMULATOR } from "@/lib/firebase";
 import { generateSessionCode } from "@/lib/session-code";
+import { duplicateSessionFromTemplate, loadTemplateSource } from "@/lib/classroom";
+import { TEMPLATE_EXCLUDED_NOTICE, templatePosts } from "@/lib/template";
 import { METRICS } from "@/lib/metrics";
 import { formatDate } from "@/lib/format";
 import {
@@ -166,6 +167,10 @@ export default function AdminPage() {
   const [editTarget, setEditTarget] = useState<SessionItem | null>(null);
   const [editForm, setEditForm] = useState({ title: "", eventDate: "", description: "" });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [dupTarget, setDupTarget] = useState<SessionItem | null>(null);
+  const [dupForm, setDupForm] = useState({ title: "", eventDate: "", copyModules: true, copyInstructorPosts: true });
+  const [dupCounts, setDupCounts] = useState<{ modules: number; posts: number } | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
   // 역할은 이메일과 짝지어 보관 (로그아웃·계정 전환 시 이전 역할을 쓰지 않도록)
   const [roleState, setRoleState] = useState<{ email: string; role: Role } | null>(null);
   // Firestore Rules는 Firebase Auth uid로 세션 소유자를 판별하므로 NextAuth의 sub 대신 이 값을 사용.
@@ -309,18 +314,36 @@ export default function AdminPage() {
   }
 
   // 세션 복제 — 설정(제목/설명/금칙어/차단 이름)만 복사, 새 코드 발급
-  async function handleDuplicate(source: SessionItem) {
-    if (!firebaseUid) return;
-    if (!confirm(`"${source.title}" 세션의 설정을 복사해 새 세션을 만드시겠습니까?`)) return;
+  // 템플릿 복제 (P2-02) — 복제 창에서 제목·교육일·복사 범위를 고른다
+  function handleDuplicate(source: SessionItem) {
+    setDupTarget(source);
+    setDupForm({ title: `${source.title} (복사)`, eventDate: "", copyModules: true, copyInstructorPosts: true });
+    setDupCounts(null);
+    loadTemplateSource(source.id)
+      .then(({ modules, posts }) => setDupCounts({ modules: modules.length, posts: templatePosts(posts, source.createdBy).length }))
+      .catch(() => setDupCounts({ modules: -1, posts: -1 }));
+  }
+
+  async function handleConfirmDuplicate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!dupTarget || !firebaseUid || !dupForm.title.trim()) return;
+    setDuplicating(true);
     try {
       const newCode = await generateUniqueCode();
-      const newSessionId = await duplicateSession(source, newCode, firebaseUid);
+      const newSessionId = await duplicateSessionFromTemplate(
+        dupTarget,
+        { title: dupForm.title.trim(), eventDate: dupForm.eventDate || null, code: newCode },
+        { uid: firebaseUid, name: session?.user?.name || "강사" },
+        { copyModules: dupForm.copyModules, copyInstructorPosts: dupForm.copyInstructorPosts }
+      );
+      setDupTarget(null);
       reloadSessions();
       showQR(newCode, newSessionId);
     } catch (err) {
       console.error("[admin] 세션 복제 실패", err);
       alert("세션 복제에 실패했습니다.");
     }
+    setDuplicating(false);
   }
 
   async function runAndReload(action: () => Promise<unknown>, failMessage: string) {
@@ -437,7 +460,7 @@ export default function AdminPage() {
     if (canManage(s)) {
       items.push({ key: "edit", label: "정보 수정 (제목·교육일)", icon: <RiEditLine size={16} />, onSelect: () => openEdit(s) });
     }
-    items.push({ key: "duplicate", label: "설정 복제", icon: <RiFileCopy2Line size={16} />, onSelect: () => handleDuplicate(s) });
+    items.push({ key: "duplicate", label: "템플릿으로 복제", icon: <RiFileCopy2Line size={16} />, onSelect: () => handleDuplicate(s) });
     if (canManage(s)) {
       if (st === "active") {
         items.push({
@@ -704,6 +727,65 @@ export default function AdminPage() {
               </Button>
             </div>
           </div>
+        )}
+      </Modal>
+
+      <Modal open={!!dupTarget} onClose={() => !duplicating && setDupTarget(null)} className="max-w-md" labelledBy="dup-dialog-title">
+        {dupTarget && (
+          <form onSubmit={handleConfirmDuplicate} className="px-6 pb-6 flex flex-col gap-4">
+            <h2 id="dup-dialog-title" className="text-2xl font-bold text-graphite">
+              템플릿으로 복제
+            </h2>
+            <p className="text-sm text-slate-text">
+              <span className="font-semibold text-ink">{dupTarget.title}</span>의 구성을 새 세션으로 가져옵니다. 새 입장 코드가 발급됩니다.
+            </p>
+            <div>
+              <label htmlFor="dup-title" className="block text-sm font-semibold text-ink mb-1">
+                새 세션 제목
+              </label>
+              <Input id="dup-title" value={dupForm.title} onChange={(e) => setDupForm((f) => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div>
+              <label htmlFor="dup-date" className="block text-sm font-semibold text-ink mb-1">
+                교육일 <span className="font-normal text-slate-text">(선택)</span>
+              </label>
+              <Input id="dup-date" type="date" value={dupForm.eventDate} onChange={(e) => setDupForm((f) => ({ ...f, eventDate: e.target.value }))} />
+            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold text-ink mb-1">가져올 내용</legend>
+              <label className="flex items-start gap-2 text-sm text-ink cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={dupForm.copyModules}
+                  onChange={(e) => setDupForm((f) => ({ ...f, copyModules: e.target.checked }))}
+                  className="accent-graphite w-4 h-4 mt-0.5"
+                />
+                <span>
+                  실습 안내 ({dupCounts === null ? "확인 중" : dupCounts.modules < 0 ? "확인 불가" : `${dupCounts.modules}개`}) <span className="text-slate-text">— 마감 시각은 비워 둡니다</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-ink cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={dupForm.copyInstructorPosts}
+                  onChange={(e) => setDupForm((f) => ({ ...f, copyInstructorPosts: e.target.checked }))}
+                  className="accent-graphite w-4 h-4 mt-0.5"
+                />
+                <span>
+                  강사가 올린 자료·프롬프트·공지 ({dupCounts === null ? "확인 중" : dupCounts.posts < 0 ? "확인 불가" : `${dupCounts.posts}개`})
+                </span>
+              </label>
+              <p className="text-xs text-slate-text">항상 함께 복사: 설명·금칙어·차단 이름. {TEMPLATE_EXCLUDED_NOTICE}</p>
+            </fieldset>
+            <div className="flex justify-end gap-2">
+              <Button variant="outlined" type="button" onClick={() => setDupTarget(null)} disabled={duplicating}>
+                취소
+              </Button>
+              <Button type="submit" disabled={duplicating || !dupForm.title.trim()}>
+                {duplicating ? "복제 중..." : "새 세션 만들기"}
+              </Button>
+            </div>
+          </form>
         )}
       </Modal>
 

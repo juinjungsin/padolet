@@ -57,15 +57,15 @@ test("보관 — 기본 목록에서 숨고, 보관 필터에서 보이며, 새 
   await expect(row(SEED.main.id)).toContainText("진행 중");
 });
 
-test("종료 → 다시 진행, 설정 복제 (QA-11)", async () => {
+test("종료 → 다시 진행, 템플릿 복제 (QA-11)", async () => {
   page.once("dialog", (d) => d.accept());
   await rowMenu(SEED.empty.id, /종료/);
   await expect(row(SEED.empty.id)).toContainText("종료");
   await rowMenu(SEED.empty.id, "다시 진행");
   await expect(row(SEED.empty.id)).toContainText("진행 중");
 
-  page.once("dialog", (d) => d.accept());
-  await rowMenu(SEED.empty.id, "설정 복제");
+  await rowMenu(SEED.empty.id, "템플릿으로 복제");
+  await page.getByRole("dialog", { name: "템플릿으로 복제" }).getByRole("button", { name: "새 세션 만들기" }).click();
   await expect(page.getByRole("dialog", { name: "입장 QR 코드" })).toBeVisible();
   await page.getByRole("button", { name: "닫기" }).last().click();
   await expect(rows().filter({ hasText: `${SEED.empty.title} (복사)` })).toHaveCount(1);

@@ -1,4 +1,4 @@
-// 교육 진행 데이터 접근 — 실습 안내(P1-01), 질문 상태(P1-03), 진행·도움 요청(P1-04)
+// 교육 진행 데이터 접근 — 실습 안내(P1-01), 질문 상태(P1-03), 진행·도움 요청(P1-04), 제출(P2-01), 템플릿(P2-02)
 import {
   addDoc,
   arrayRemove,
@@ -6,6 +6,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -17,7 +18,9 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db as getDb } from "./firebase";
-import type { Message, QuestionStatus } from "./firestore";
+import { createSession } from "./firestore";
+import type { Message, Post, QuestionStatus, Session } from "./firestore";
+import { planTemplateCopy, TemplateOptions } from "./template";
 import { HelpRequest, memberDocId, Module, Progress, ProgressStatus } from "./practice";
 import type { Submission, SubmissionFile, SubmissionVersion } from "./submission";
 
@@ -227,6 +230,66 @@ export async function giveFeedback(
     feedbackAt: serverTimestamp(),
   });
   await batch.commit();
+}
+
+// ---------- 세션 템플릿 복제 (P2-02) ----------
+
+/** 복제 창에 보여 줄 원본 구성 (모듈 수·복사될 강사 글 수) */
+export async function loadTemplateSource(sid: string) {
+  const db = getDb();
+  const [moduleSnap, postSnap] = await Promise.all([
+    getDocs(query(collection(db, "sessions", sid, "modules"), orderBy("order", "asc"))),
+    getDocs(collection(db, "sessions", sid, "posts")),
+  ]);
+  return {
+    modules: moduleSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Module),
+    posts: postSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Post),
+  };
+}
+
+/**
+ * 템플릿으로 새 세션 만들기 — 설정(금칙어·차단 이름) + 선택한 실습 안내·강사 자료.
+ * 교육생 글·질문·대화·제출물·참여자·투표는 복사하지 않는다.
+ */
+export async function duplicateSessionFromTemplate(
+  source: Session & { id: string },
+  info: { title: string; eventDate: string | null; code: string },
+  author: { uid: string; name: string },
+  options: TemplateOptions
+): Promise<string> {
+  const db = getDb();
+  const content = options.copyModules || options.copyInstructorPosts ? await loadTemplateSource(source.id) : null;
+  const newSid = await createSession({
+    title: info.title,
+    description: source.description || "",
+    eventDate: info.eventDate,
+    code: info.code,
+    createdBy: author.uid,
+    requireGoogleLogin: source.requireGoogleLogin ?? false,
+    bannedWords: source.bannedWords || [],
+    blockedNames: source.blockedNames || [],
+  });
+  if (!content) return newSid;
+
+  const plan = planTemplateCopy(
+    { posts: content.posts, modules: content.modules, ownerId: source.createdBy },
+    options,
+    author,
+    () => doc(collection(db, "sessions", newSid, "posts")).id
+  );
+  const batch = writeBatch(db);
+  plan.modules.forEach((m) =>
+    batch.set(doc(db, "sessions", newSid, "modules", m.newId), { ...m.data, updatedAt: serverTimestamp() })
+  );
+  plan.posts.forEach((p) =>
+    batch.set(doc(db, "sessions", newSid, "posts", p.newId), {
+      ...p.data,
+      createdAt: serverTimestamp(),
+      ...(p.data.pinned ? { pinnedAt: serverTimestamp() } : {}),
+    })
+  );
+  await batch.commit();
+  return newSid;
 }
 
 // ---------- 질문 상태 (posts) ----------

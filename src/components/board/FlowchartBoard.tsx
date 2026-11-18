@@ -11,6 +11,7 @@ import { uploadFile, UploadResult } from "@/lib/storage";
 import type { PostCardContext } from "./PostCard";
 import FlowCanvas from "./FlowCanvas";
 import WorkflowDetails from "./WorkflowDetails";
+import FlowchartAIImport from "./FlowchartAIImport";
 import { arrangeWorkflow, diagnoseWorkflow, edgeCaption, RELATIONS, workflowReport, workflowTemplate, workflowText, Collaboration } from "@/lib/workflow";
 
 const field = "border border-silver-mist rounded-lg p-2 bg-white text-sm max-w-full";
@@ -160,6 +161,12 @@ export default function FlowchartBoard({ ctx }: { ctx: PostCardContext }) {
       {popupRoot ? <button className={button} onClick={() => { popup.current?.close(); setPopupRoot(null); }}>보드로 돌아가기</button> : <button className={button} onClick={openWindow}>새 창에서 크게 편집</button>}
       {draft && <button disabled={busy} className={button} onClick={() => { if (window.confirm("변경을 버리고 최신 저장본을 열까요?")) { setDraft(null); setError(""); } }}>최신본 다시 열기</button>}
     </div>
+    <FlowchartAIImport key={selected} sessionId={ctx.sessionId} editable={editable} onApply={generated => {
+      if (!editable) return false;
+      if (flow.nodes.length && !(popup.current ?? window).confirm("현재 흐름도 초안을 AI 생성 결과로 교체할까요? 저장 전에는 ‘최신본 다시 열기’로 저장본을 복구할 수 있습니다.")) return false;
+      const next = { ...generated, revision: flow.revision };
+      change(next); setNodeId(null); setConnecting(false); setFrom(""); setTo(""); setError(""); setView(flowBounds(next)); return true;
+    }} />
     <div className="flex flex-wrap gap-2 items-center">
       {([['step', '작업'], ['decision', '분기'], ['terminal', '시작/종료']] as const).map(([kind, label]) => <button key={kind} className={button} disabled={!editable || flow.nodes.length >= 100} onClick={() => create(kind)}>{label} 추가</button>)}
       <span className="text-xs text-slate-text">{draft ? "저장하지 않은 변경 있음" : "저장된 내용"}</span>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Flowchart, FlowNode, FlowView, flowEdgePath, flowLabelLines, zoomFlow } from "@/lib/flowchart";
 import { ACTIONS, edgeCaption, workBadge, workflowLanes } from "@/lib/workflow";
 
@@ -13,6 +13,8 @@ interface Props {
 export default function FlowCanvas(props: Props) {
   const { flow, view, onView, selected, onSelect, editable, connecting, onConnect, onMove, onCreate } = props;
   const svg = useRef<SVGSVGElement>(null);
+  const instance = useId().replace(/:/g, "");
+  const arrowId = `flow-arrow-${instance}`, gridId = `flow-grid-${instance}`;
   const latest = useRef(props);
   useEffect(() => { latest.current = props; });
   const gesture = useRef<{ kind: "node" | "pan"; id?: string; x: number; y: number; view: FlowView } | null>(null);
@@ -76,14 +78,14 @@ export default function FlowCanvas(props: Props) {
         onView({ ...g.view, x: g.view.x - (e.clientX - g.x) * ratio, y: g.view.y - (e.clientY - g.y) * ratio });
       }
     }}>
-    <defs><marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#475569" /></marker><pattern id="flow-grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#dce1e5" /></pattern></defs>
-    <rect data-background="true" x={view.x - view.width} y={view.y - view.height} width={view.width * 3} height={view.height * 3} fill="url(#flow-grid)" />
+    <defs><marker id={arrowId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#475569" /></marker><pattern id={gridId} width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#dce1e5" /></pattern></defs>
+    <rect data-background="true" x={view.x - view.width} y={view.y - view.height} width={view.width * 3} height={view.height * 3} fill={`url(#${gridId})`} />
     {workflowLanes(flow).map((lane, i) => <g key={lane.name} pointerEvents="none"><rect x={lane.x} y={lane.y} width={lane.width} height={lane.height} rx="12" fill={i % 2 ? "#eef2ff" : "#f0fdf4"} stroke="#cbd5e1" /><text x={lane.x + 12} y={lane.y + 22} fontSize="14" fontWeight="600" fill="#334155">{lane.name}</text></g>)}
     {flow.edges.map(edge => {
       const a = flow.nodes.find(n => n.id === edge.from), b = flow.nodes.find(n => n.id === edge.to);
       if (!a || !b) return null;
       const { d, mid } = flowEdgePath(a, b);
-      return <g key={edge.id} pointerEvents="none"><path d={d} fill="none" stroke="#475569" strokeWidth="2" strokeDasharray={edge.collaboration?.kind === "feedback" ? "6 4" : undefined} markerEnd="url(#flow-arrow)" /><text x={mid.x} y={mid.y - 8} textAnchor="middle" fontSize="13" fill="#334155" stroke="white" strokeWidth="4" paintOrder="stroke">{edgeCaption(edge)}</text></g>;
+      return <g key={edge.id} pointerEvents="none"><path d={d} fill="none" stroke="#475569" strokeWidth="2" strokeDasharray={edge.collaboration?.kind === "feedback" ? "6 4" : undefined} markerEnd={`url(#${arrowId})`} /><text x={mid.x} y={mid.y - 8} textAnchor="middle" fontSize="13" fill="#334155" stroke="white" strokeWidth="4" paintOrder="stroke">{edgeCaption(edge)}</text></g>;
     })}
     {flow.nodes.map(n => {
       const lines = flowLabelLines(n.label);

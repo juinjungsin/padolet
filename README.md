@@ -75,6 +75,23 @@ npm run test:e2e         # E2E (Playwright — 에뮬레이터·개발 서버 �
 
 기존 구성도도 그대로 열립니다. 기존 작성자/관리자 편집 권한, 보드 잠금, 동시 저장 충돌 검사를 유지합니다.
 
+### Markdown에서 AI로 구성도 생성
+
+**흐름도 → MD 파일에서 AI로 흐름도 만들기**를 펼칩니다.
+
+1. 본인의 **OpenAI API 키**와 모델 ID를 입력합니다. 기본 모델은 `gpt-4o-mini`이며 Responses API의 Structured Outputs 지원 모델을 사용합니다.
+2. 업무 설명이 담긴 UTF-8 `.md` / `.markdown` 파일을 선택합니다 (최대 128KB, 60,000자). 파일 선택만으로 AI 요청은 발생하지 않습니다.
+3. **AI로 생성**을 누릅니다. 문서 내용은 padolet 서버를 거쳐 OpenAI에 전송되며 해당 API 키의 사용 요금이 적용됩니다. 문서에 명시된 단계·조직·역할·입출력·시스템·협업 관계를 추출하고, 불명확한 내용은 확인 사항으로 표시합니다.
+4. 미리보기에서 객체를 선택해 업무 상세를 확인합니다. **현재 흐름도에 적용**을 누르면 기존 초안이 있을 경우 교체 확인 후 적용합니다. 원본 저장은 **흐름도 저장**으로 완료합니다. 적용한 구성도는 직접 편집하고 PNG/JPG 및 보드 공유에 사용할 수 있습니다.
+
+API 키는 화면 메모리에만 유지하며 localStorage/sessionStorage/Firestore/환경 파일에 저장하지 않습니다. 원본 Markdown 파일도 업로드 저장소에 보관하지 않습니다. 서버는 키를 OpenAI의 고정 HTTPS 주소로만 전달하고 `store: false`를 사용합니다. 새로고침하거나 화면을 떠나면 키를 다시 입력합니다. 공용 API 키를 별도로 배포할 필요가 없습니다.
+
+취소·API 한도/키 오류·시간 초과·잘못된 결과는 기존 구성도를 변경하지 않습니다. 생성 취소는 이미 처리된 API 사용량의 청구를 취소하지 않습니다. 서버에서 Firebase 인증·보드 참여 권한·잠금을 검사하며, AI 결과의 단계/연결 수·참조·유형·문자열·시간 값을 검증합니다.
+
+검증은 테스트용 AI 응답과 로컬 Firebase 에뮬레이터로 수행합니다. 실제 유료 AI 호출은 사용자가 직접 입력한 키로 실행합니다.
+
+구현 참고: [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [Firebase Auth REST 계정 확인](https://firebase.google.com/docs/reference/rest/auth#section-get-account-info).
+
 ## 운영 배포 순서
 
 1. 보안 규칙을 바꿨다면 **규칙 먼저**: `npx firebase-tools deploy --only firestore:rules,storage --project jblet-3e6c3`

@@ -1,4 +1,5 @@
 import { Flowchart, flowBounds, flowEdgePath, flowLabelLines } from "./flowchart";
+import { ACTIONS, edgeCaption, workBadge, workflowLanes } from "./workflow";
 
 const xml = (s: string) => s.replace(/[<>&"']/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]!));
 export function flowSvg(flow: Flowchart) {
@@ -6,15 +7,17 @@ export function flowSvg(flow: Flowchart) {
   const nodes = flow.nodes.map(n => {
     const shape = n.kind === "decision" ? '<polygon points="90,0 180,40 90,80 0,40" fill="#fff4cc"/>' : `<rect width="180" height="80" rx="${n.kind === "terminal" ? 40 : 12}" fill="${n.kind === "terminal" ? "#e1f3e8" : "#e6efff"}"/>`;
     const lines = flowLabelLines(n.label);
-    return `<g transform="translate(${n.x},${n.y})"><g stroke="#475569" stroke-width="2">${shape}</g><text text-anchor="middle" fill="#172b4d" font-size="14">${lines.map((line, i) => `<tspan x="90" y="${44 - (lines.length - 1) * 9 + i * 18}">${xml(line)}</tspan>`).join("")}</text></g>`;
+    const badge = workBadge(n);
+    return `<g transform="translate(${n.x},${n.y})"><g stroke="#475569" stroke-width="2">${shape}</g><text text-anchor="middle" fill="#172b4d" font-size="14">${lines.map((line, i) => `<tspan x="90" y="${44 - (lines.length - 1) * 9 + i * 18}">${xml(line)}</tspan>`).join("")}</text>${badge ? `<text x="90" y="99" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="3" paint-order="stroke">${xml(Array.from(badge).slice(0, 24).join(""))}</text>` : ""}${n.work?.action ? `<text x="90" y="116" text-anchor="middle" font-size="11" fill="#1d4ed8" stroke="white" stroke-width="3" paint-order="stroke">${ACTIONS[n.work.action]}</text>` : ""}</g>`;
   }).join("");
   const edges = flow.edges.map(e => {
     const a = flow.nodes.find(n => n.id === e.from), z = flow.nodes.find(n => n.id === e.to);
     if (!a || !z) return "";
     const { d, mid } = flowEdgePath(a, z);
-    return `<path d="${d}" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/><text x="${mid.x}" y="${mid.y - 8}" text-anchor="middle" font-size="13" fill="#334155">${xml(e.label)}</text>`;
+    return `<path d="${d}" fill="none" stroke="#475569" stroke-width="2" ${e.collaboration?.kind === "feedback" ? 'stroke-dasharray="6 4"' : ""} marker-end="url(#arrow)"/><text x="${mid.x}" y="${mid.y - 8}" text-anchor="middle" font-size="13" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">${xml(edgeCaption(e))}</text>`;
   }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${b.width}" height="${b.height}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" font-family="Arial, sans-serif"><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="white"/><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#475569"/></marker></defs>${edges}${nodes}</svg>`;
+  const lanes = workflowLanes(flow).map((l, i) => `<rect x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" rx="12" fill="${i % 2 ? "#eef2ff" : "#f0fdf4"}" stroke="#cbd5e1"/><text x="${l.x + 12}" y="${l.y + 22}" font-size="14" fill="#334155">${xml(l.name)}</text>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${b.width}" height="${b.height}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" font-family="Arial, sans-serif"><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="white"/><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#475569"/></marker></defs>${lanes}${edges}${nodes}</svg>`;
 }
 export function imageSize(flow: Flowchart) {
   const b = flowBounds(flow);

@@ -223,7 +223,8 @@ service cloud.firestore {
             || (isSessionParticipant(sessionId) && flowId == request.auth.uid && !isBoardLocked(sessionId));
         }
         function validFlow() {
-          return request.resource.data.keys().hasOnly(['title', 'nodes', 'edges', 'revision', 'updatedAt'])
+          return request.resource.data.keys().hasOnly(['title', 'nodes', 'edges', 'revision', 'updatedAt', 'layout'])
+            && (!('layout' in request.resource.data) || request.resource.data.layout in ['free', 'organization'])
             && request.resource.data.title is string && request.resource.data.title.size() <= 200
             && request.resource.data.nodes is list && request.resource.data.nodes.size() <= 100
             && request.resource.data.edges is list && request.resource.data.edges.size() <= 200

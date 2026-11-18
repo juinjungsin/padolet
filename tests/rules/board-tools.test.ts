@@ -56,3 +56,14 @@ it("flow ownership, revision checks and size limits are enforced", async () => {
   await assertFails(updateDoc(ref, { nodes: Array(101).fill({}), revision: 2 }));
   await assertSucceeds(updateDoc(ref, { title: "수정", revision: 2 }));
 });
+
+it("organization layout is optional, enum checked and subject to existing ownership and locks", async () => {
+  const ref = doc(db("a"), "sessions", sid, "flowcharts", "a");
+  const flow = { title: "협업", layout: "organization", nodes: [{ id: "n", label: "검토", kind: "step", x: 0, y: 0, work: { organization: "운영", owner: "담당자", improvement: "단순화" } }], edges: [], revision: 1 };
+  await assertSucceeds(setDoc(ref, flow));
+  await assertFails(updateDoc(ref, { layout: "invalid", revision: 2 }));
+  await assertFails(updateDoc(doc(db("b"), "sessions", sid, "flowcharts", "a"), { layout: "free", revision: 2 }));
+  await assertSucceeds(updateDoc(ref, { layout: "free", revision: 2 }));
+  await updateDoc(doc(db("owner", "owner@example.com"), "sessions", sid), { locked: true });
+  await assertFails(updateDoc(ref, { layout: "organization", revision: 3 }));
+});

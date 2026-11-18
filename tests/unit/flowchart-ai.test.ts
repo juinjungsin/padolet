@@ -3,10 +3,17 @@ import { POST } from "@/app/api/flowcharts/generate/route";
 import { exampleProcedureDraft, exampleProcedureSteps, markExampleFlow, parseGeneratedFlow, parseResponseOutput, validateMarkdown } from "@/lib/flowchart-ai";
 import { exampleTemplate } from "../support/flowchart-example";
 import { readBoundedJson } from "@/lib/flowchart-ai-server";
+import { understandingToFlow } from "@/lib/flowchart-understanding";
 
 const node = (id: string) => ({ id, label: `업무 ${id}`, kind: "step", organization: "영업팀", owner: "담당자", input: "요청서", output: "견적", system: "ERP", issue: "", improvement: "", action: null, minutes: null, waitMinutes: null });
 const generated = () => ({ title: "견적 업무", nodes: [node("a"), { ...node("b"), organization: "재무팀", minutes: 0 }], edges: [{ from: "a", to: "b", label: "확인", kind: "handoff", deliverable: "견적서", agreement: "금액 확인" }], warnings: ["처리 시간이 명시되지 않았습니다."] });
 const response = (value = generated()) => ({ status: "completed", output: [{ type: "reasoning" }, { type: "message", content: [{ type: "output_text", text: JSON.stringify(value) }] }] });
+const understood = () => ({ title: "견적 업무", purpose: "요청 접수를 시작으로 견적서를 작성하여 재무팀에 전달하는 업무입니다.", documentKind: "actual",
+  activities: [
+    { id: "receive", action: "요청 접수", kind: "step", organization: "", owner: "", input: "요청", output: "접수된 요청", system: "", basis: "explicit", evidence: "요청 접수", minutes: null, waitMinutes: null },
+    { id: "prepare", action: "견적 작성", kind: "step", organization: "", owner: "", input: "접수된 요청", output: "견적서", system: "", basis: "inferred", evidence: "견적서를 재무팀에 전달", minutes: null, waitMinutes: null },
+  ], relationships: [{ from: "receive", to: "prepare", condition: "요청을 바탕으로 작성", kind: "sequence", deliverable: "요청", basis: "inferred", evidence: "요청 접수 후 견적서" }], warnings: [] });
+const understandingResponse = (value: unknown = understood()) => ({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(value) }] }] });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("Markdown to workflow", () => {
@@ -45,7 +52,7 @@ describe("Markdown to workflow", () => {
 
 const body = { sessionId: "board-test", apiKey: "sk-test-placeholder-only", model: "gpt-4o-mini", markdown: "# 업무\n요청 접수 후 견적서를 재무팀에 전달합니다." };
 const request = (values: typeof body & { mode?: string } = body, headers: Record<string, string> = {}) => new Request("https://padolet.test/api/flowcharts/generate", { method: "POST", headers: { origin: "https://padolet.test", "content-type": "application/json", authorization: "Bearer test-firebase-token", ...headers }, body: JSON.stringify(values) });
-function setup({ member = true, locked = false, providerStatus = 200, authStatus = 200, providerBody = response() as unknown } = {}) {
+function setup({ member = true, locked = false, providerStatus = 200, authStatus = 200, providerBody = understandingResponse() as unknown } = {}) {
   vi.stubEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", "test-project"); vi.stubEnv("NEXT_PUBLIC_FIREBASE_API_KEY", "public-firebase-key"); vi.stubEnv("NEXT_PUBLIC_USE_EMULATOR", "0");
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.startsWith("https://identitytoolkit.googleapis.com/")) return Response.json({ users: [{ localId: "student" }] }, { status: authStatus });
@@ -60,39 +67,34 @@ function setup({ member = true, locked = false, providerStatus = 200, authStatus
   vi.stubGlobal("fetch", fetch); return fetch;
 }
 describe("AI generation server boundary", () => {
-  it("uses explicit example steps after a completed empty answer without a second AI call", async () => {
-    const fetch = setup({ providerBody: response({ ...generated(), nodes: [], edges: [] }) });
-    const res = await POST(request({ ...body, markdown: exampleTemplate, mode: "example" }));
+  it.each([undefined, "actual", "example", "understand"])("understands the document for new and old clients (mode %s)", async mode => {
+    const fetch = setup();
+    const res = await POST(request({ ...body, mode }));
     expect(res.status).toBe(200);
-    const result = await res.json();
-    expect(result.flow.nodes).toHaveLength(5); expect(result.flow.edges).toHaveLength(4);
-    expect(result.flow.title).toMatch(/^\[예시 초안\]/);
-    expect(result.warnings.join(" ")).toContain("추가 AI 호출은 하지 않았습니다");
+    const data = await res.json();
+    expect(data.understanding.purpose).toContain("견적서를 작성");
+    expect(data.flow.nodes[1].label).toBe("[추정] 견적 작성");
+    expect(data.flow.edges[0].label).toContain("[추정]");
+    expect(data.flow.nodes[1].work.issue).toContain("근거: 견적서를 재무팀에 전달");
     const calls = fetch.mock.calls.filter(c => c[0].includes("api.openai.com"));
     expect(calls).toHaveLength(1);
-    expect(JSON.parse(calls[0][1]!.body as string).instructions).toContain("EXAMPLE DRAFT MODE");
+    const payload = JSON.parse(calls[0][1]!.body as string);
+    expect(payload.text.format.name).toBe("document_understanding");
+    expect(payload.text.format.schema.properties.activities.minItems).toBe(1);
+    expect(payload.instructions).toContain("문서 전체를 이해");
   });
-  it("keeps actual extraction separate and rejects unknown modes", async () => {
-    const fetch = setup({ providerBody: response({ ...generated(), nodes: [], edges: [] }) });
-    expect((await POST(request({ ...body, markdown: exampleTemplate }))).status).toBe(422);
-    fetch.mockClear();
+  it("rejects invalid modes before spending API usage", async () => {
+    const fetch = setup();
     expect((await POST(request({ ...body, mode: "invent" }))).status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
   });
   it.each([
-    { ...response(), status: "incomplete" },
+    { ...understandingResponse(), status: "incomplete" },
     { status: "completed", output: [{ type: "message", content: [{ type: "refusal", refusal: "no" }] }] },
-    response({ ...generated(), nodes: [] }),
-  ])("never hides refused, incomplete or inconsistent AI output with a fallback", async providerBody => {
+    understandingResponse({ ...understood(), activities: [] }),
+  ])("never invents a successful graph from rejected or incomplete analysis", async providerBody => {
     setup({ providerBody });
-    expect((await POST(request({ ...body, markdown: exampleTemplate, mode: "example" }))).status).toBe(502);
-  });
-  it("marks successful example generation and removes sample durations", async () => {
-    setup();
-    const res = await POST(request({ ...body, mode: "example" }));
-    const result = await res.json();
-    expect(res.status).toBe(200); expect(result.flow.title).toMatch(/^\[예시 초안\]/);
-    expect(result.flow.nodes.every((n: { work: { minutes?: number } }) => n.work.minutes === undefined)).toBe(true);
+    expect((await POST(request())).status).toBe(502);
   });
   it("verifies membership, sends a constrained response request and never returns the API key", async () => {
     const fetch = setup();
@@ -122,6 +124,34 @@ describe("AI generation server boundary", () => {
   it.each([401, 429, 500])("returns a safe message for provider %i errors", async providerStatus => {
     setup({ providerStatus }); const res = await POST(request());
     expect(res.ok).toBe(false); expect(await res.text()).not.toContain(body.apiKey);
+  });
+});
+
+describe("document understanding to diagram", () => {
+  it("renders source-backed activities without requiring numbered procedures or known owners", () => {
+    const result = understandingToFlow(understood(), body.markdown);
+    expect(result.flow.nodes).toHaveLength(2);
+    expect(result.flow.nodes[0].work?.owner).toBe("");
+    expect(result.flow.nodes[1].label).toBe("[추정] 견적 작성");
+    expect(result.flow.edges).toHaveLength(1);
+  });
+  it("uses template examples as activities and preserves branch conditions", () => {
+    const source = "목적: 자료 대조\n[예: 금액을 비교한다.]\n[예: 금액이 다르면 차이를 보고한다.]";
+    const v = understood(); v.documentKind = "example";
+    v.activities = v.activities.map((a, i) => ({ ...a, kind: i ? "step" : "decision", basis: "example", evidence: i ? "금액이 다르면 차이를 보고한다." : "금액을 비교한다.", action: i ? "차이 보고" : "금액 일치?" }));
+    v.relationships[0] = { ...v.relationships[0], basis: "example", condition: "불일치", evidence: "금액이 다르면 차이를 보고한다." };
+    const result = understandingToFlow(v, source);
+    expect(result.flow.title).toMatch(/^\[예시 초안\]/);
+    expect(result.flow.nodes[0].kind).toBe("decision");
+    expect(result.flow.edges[0].label).toBe("[예시] 불일치");
+    expect(result.flow.nodes.every(n => n.work?.minutes === undefined)).toBe(true);
+  });
+  it.each(["fabricated evidence", "bad endpoint", "duplicate activity"])("rejects %s", scenario => {
+    const v = understood();
+    if (scenario === "fabricated evidence") v.activities[0].evidence = "원문에 없는 내용";
+    if (scenario === "bad endpoint") v.relationships[0].to = "missing";
+    if (scenario === "duplicate activity") v.activities[1].id = v.activities[0].id;
+    expect(() => understandingToFlow(v, body.markdown)).toThrow();
   });
 });
 

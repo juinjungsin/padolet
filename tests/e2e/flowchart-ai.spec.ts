@@ -8,7 +8,7 @@ import { exampleTemplate } from "../support/flowchart-example";
 
 test.beforeAll(async () => { await seed(); });
 
-test("예시 양식 자동 인식·AI 호출 없는 초안 생성·저장 복원", async ({ page }) => {
+test("문서 이해 기본 화면·AI 호출 없는 예시 초안·저장 복원", async ({ page }) => {
   let calls = 0;
   await page.route("**/api/flowcharts/generate", route => { calls++; return route.abort(); });
   await joinAsParticipant(page, SEED.main.code, "예시 검증");
@@ -16,13 +16,13 @@ test("예시 양식 자동 인식·AI 호출 없는 초안 생성·저장 복원
   const panel = page.getByTestId("flow-ai-import");
   await panel.getByText("MD 파일에서 AI로 흐름도 만들기", { exact: true }).click();
   await panel.getByLabel("업무 설명 Markdown 파일", { exact: true }).setInputFiles({ name: "example.md", mimeType: "text/markdown", buffer: Buffer.from(exampleTemplate) });
-  const mode = panel.getByRole("combobox", { name: "문서 분석 기준", exact: true });
-  await expect(mode).toHaveValue("example");
+  await expect(panel.getByText("문서 이해 → 업무 구조 정리 → 흐름도 구성", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("combobox", { name: "문서 분석 기준", exact: true })).toHaveCount(0);
   await expect(panel.getByLabel("OpenAI API 키", { exact: true })).toHaveValue("");
   await expect(panel.getByRole("button", { name: "AI로 생성", exact: true })).toBeDisabled();
   const local = panel.getByRole("button", { name: "예시 절차로 바로 초안 만들기 (AI 호출 없음)", exact: true });
-  await mode.selectOption("actual"); await expect(local).toHaveCount(0);
-  await mode.selectOption("example"); await local.click();
+  await panel.getByText("AI 없이 예시 절차만 연결하기", { exact: true }).click();
+  await local.click();
   const preview = panel.getByRole("region", { name: "AI 생성 결과 미리보기" });
   await expect(preview).toContainText("단계 5개 · 연결 4개");
   await expect(preview).toContainText("[예시 초안]");
@@ -49,9 +49,9 @@ test("MD 업로드·미리보기·교체 확인·저장 복원 및 키 비저장
   await page.route("**/api/flowcharts/generate", async route => {
     calls++; const body = route.request().postDataJSON();
     expect(body.markdown).toContain("영업팀"); expect(body.apiKey).toBe(key);
-    expect(body.model).toBe("gpt-6.2-sol");
+    expect(body.model).toBe("gpt-6.2-sol"); expect(body.mode).toBe("understand");
     expect(route.request().headers().authorization).toMatch(/^Bearer /);
-    await route.fulfill({ json: generated });
+    await route.fulfill({ json: { ...generated, understanding: { purpose: "영업팀의 접수 내용을 관리팀이 검토하는 견적 업무입니다.", documentKind: "actual" } } });
   });
   await joinAsParticipant(page, SEED.main.code, "AI 작성자");
   await page.getByRole("tab", { name: "흐름도", exact: true }).click();
@@ -71,6 +71,7 @@ test("MD 업로드·미리보기·교체 확인·저장 복원 및 키 비저장
   await panel.getByRole("button", { name: "AI로 생성", exact: true }).click();
   const preview = panel.getByRole("region", { name: "AI 생성 결과 미리보기" });
   await expect(preview).toContainText("승인 기한은 원문에 없습니다.");
+  await expect(preview.getByLabel("문서 이해 결과")).toContainText("영업팀의 접수 내용을 관리팀이 검토하는 견적 업무입니다.");
   await expect(page.getByLabel("흐름도 제목", { exact: true })).toHaveValue("작업 흐름도");
   await preview.getByRole("button", { name: "단계 접수", exact: true }).click();
   await expect(preview.getByLabel("담당 조직", { exact: true })).toHaveValue("영업팀");

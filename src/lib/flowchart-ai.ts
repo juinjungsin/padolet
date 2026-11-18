@@ -3,7 +3,14 @@ import { ACTIONS, RELATIONS, arrangeWorkflow, WorkDetails, Collaboration } from 
 
 export const MAX_MARKDOWN_BYTES = 128 * 1024;
 export const MAX_MARKDOWN_CHARS = 60000;
-export const DEFAULT_FLOW_MODEL = "gpt-4o-mini";
+// Responses + Structured Outputs support checked in the official model catalog (2026-11-19).
+export const DEFAULT_FLOW_MODEL = "gpt-6-luna";
+export const FLOW_MODEL_OPTIONS = [
+  { id: "gpt-6-luna", label: "GPT-6 Luna (기본)" },
+  { id: "gpt-6.2-sol", label: "GPT-6.2 Sol" },
+  { id: "gpt-6.1-terra", label: "GPT-6.1 Terra" },
+  { id: "gpt-6.2-astra", label: "GPT-6.2 Astra" },
+] as const;
 export interface GeneratedFlow { flow: Flowchart; warnings: string[] }
 const textFields = ["organization", "owner", "input", "output", "system", "issue", "improvement"] as const;
 const object = (properties: Record<string, unknown>) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });

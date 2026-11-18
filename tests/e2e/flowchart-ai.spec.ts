@@ -3,7 +3,7 @@ import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { seed, SEED, createTestEnv } from "../support/seed.mjs";
 import { EMULATOR_PORTS } from "../../scripts/emulator-env.mjs";
 import { joinAsParticipant } from "./helpers";
-import { parseGeneratedFlow } from "../../src/lib/flowchart-ai";
+import { DEFAULT_FLOW_MODEL, parseGeneratedFlow } from "../../src/lib/flowchart-ai";
 
 test.beforeAll(async () => { await seed(); });
 const key = "sk-test-placeholder-not-a-real-key";
@@ -18,6 +18,7 @@ test("MD 업로드·미리보기·교체 확인·저장 복원 및 키 비저장
   await page.route("**/api/flowcharts/generate", async route => {
     calls++; const body = route.request().postDataJSON();
     expect(body.markdown).toContain("영업팀"); expect(body.apiKey).toBe(key);
+    expect(body.model).toBe("gpt-6.2-sol");
     expect(route.request().headers().authorization).toMatch(/^Bearer /);
     await route.fulfill({ json: generated });
   });
@@ -30,6 +31,9 @@ test("MD 업로드·미리보기·교체 확인·저장 복원 및 키 비저장
   const panel = page.getByTestId("flow-ai-import");
   await panel.getByText("MD 파일에서 AI로 흐름도 만들기", { exact: true }).click();
   await panel.getByLabel("OpenAI API 키", { exact: true }).fill(key);
+  const modelSelect = panel.getByRole("combobox", { name: "OpenAI 모델 ID", exact: true });
+  await expect(modelSelect).toHaveValue(DEFAULT_FLOW_MODEL);
+  await modelSelect.selectOption("gpt-6.2-sol");
   await expect(panel.getByLabel("OpenAI API 키", { exact: true })).toHaveAttribute("type", "password");
   await panel.getByLabel("업무 설명 Markdown 파일", { exact: true }).setInputFiles(file);
   expect(calls).toBe(0);
@@ -75,7 +79,17 @@ test("모바일 파일 검증·API 오류·취소는 기존 초안을 보존", a
   await input.setInputFiles({ ...file, buffer: Buffer.from([0xff, 0xfe, 0x00]) });
   await expect(panel.getByRole("alert")).toContainText("UTF-8");
   await input.setInputFiles(file);
-  await page.route("**/api/flowcharts/generate", route => route.fulfill({ status: 429, json: { error: "OpenAI 사용 한도·잔액을 확인해 주세요." } }));
+  await panel.getByRole("combobox", { name: "OpenAI 모델 ID", exact: true }).selectOption("custom");
+  await expect(panel.getByRole("button", { name: "AI로 생성", exact: true })).toBeDisabled();
+  await panel.getByLabel("직접 입력할 모델 ID", { exact: true }).fill("my-custom-model");
+  await panel.getByRole("combobox", { name: "OpenAI 모델 ID", exact: true }).selectOption("gpt-6.1-terra");
+  await expect(panel.getByLabel("직접 입력할 모델 ID", { exact: true })).toHaveCount(0);
+  await panel.getByRole("combobox", { name: "OpenAI 모델 ID", exact: true }).selectOption("custom");
+  await expect(panel.getByLabel("직접 입력할 모델 ID", { exact: true })).toHaveValue("my-custom-model");
+  await page.route("**/api/flowcharts/generate", route => {
+    expect(route.request().postDataJSON().model).toBe("my-custom-model");
+    return route.fulfill({ status: 429, json: { error: "OpenAI 사용 한도·잔액을 확인해 주세요." } });
+  });
   await panel.getByRole("button", { name: "AI로 생성", exact: true }).click();
   await expect(panel.getByRole("alert")).toContainText("사용 한도");
   await expect(page.getByLabel("흐름도 제목", { exact: true })).toHaveValue("작업 흐름도");
@@ -84,6 +98,7 @@ test("모바일 파일 검증·API 오류·취소는 기존 초안을 보존", a
   const waiting = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/api/flowcharts/generate", async route => { await waiting; await route.fulfill({ json: generated }).catch(() => {}); });
   await panel.getByRole("button", { name: "AI로 생성", exact: true }).click();
+  await expect(panel.getByRole("combobox", { name: "OpenAI 모델 ID", exact: true })).toBeDisabled();
   await panel.getByRole("button", { name: "생성 취소", exact: true }).click();
   release();
   await expect(panel.getByRole("status")).toContainText("취소");

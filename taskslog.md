@@ -635,3 +635,13 @@ Phase 26 — Markdown 업무 설명 → AI 구성도 생성 (2026-11-19)
     공식 OpenAI Structured Outputs 및 Firebase Auth REST 문서 기준 구현. README에 사용법 추가.
 
   배포 방식: 앱 main push로 운영 배포. API 키/환경 변수 추가 없이 사용자 키로 실행.
+
+Phase 27 — OpenAI 모델 선택 목록 (2026-11-19)
+
+  모델 ID 입력란을 선택 목록으로 변경. GPT-6 Luna(기본), GPT-6.2 Sol, GPT-6.1 Terra,
+  GPT-6.2 Astra 및 '직접 입력' 제공. 직접 입력값은 목록 전환 후에도 화면 내에서 유지.
+  공식 모델 문서에서 Responses API·Structured Outputs·출력 16,000토큰 지원 확인.
+  기존 기본 모델의 Deprecated 표시를 확인해 현재 모델로 기본값 갱신.
+  API 키에 따라 접근 권한이 다름을 안내. 생성 중 모델 변경 차단.
+  기존 E2E에서 목록 모델/직접 입력의 요청 전달, 빈 직접 입력 차단, 모바일 전환 검증.
+  관련 브라우저 3건·변경 파일 ESLint 통과. 유료 AI 호출 없이 테스트 응답 사용.

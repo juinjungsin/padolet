@@ -46,10 +46,10 @@
   --color-signal-blue: #2563eb;
   --color-ember: #b42318;
 
-  /* Typography — 제목·본문은 산세리프(한글은 시스템 고딕), 세리프는 워드마크(padolet)에만 */
-  --font-sans: var(--font-jakarta), "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
-  --font-display: var(--font-jakarta), "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
-  --font-brand: var(--font-fraunces), Georgia, serif;
+  /* Typography — 한글·영문 본문, 제목, 워드마크에 Wanted Sans 적용 */
+  --font-sans: var(--font-wanted-sans), "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --font-display: var(--font-sans);
+  --font-brand: var(--font-sans);
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
 
   /* Spacing — Tailwind 기본 4px 단위(p-4 = 16px)를 그대로 쓴다.
@@ -127,11 +127,9 @@ body {
   margin-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
-/* 워드마크(padolet) 세리프 */
+/* 워드마크(padolet) */
 .font-brand {
   font-family: var(--font-brand);
-  font-optical-sizing: auto;
-  font-variation-settings: "SOFT" 50, "WONK" 0;
 }
 
 /* 인쇄 / PDF 내보내기 — 보고서 화면에서 nav, footer, 액션바를 숨기고 카드만 출력 */

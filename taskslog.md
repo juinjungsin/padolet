@@ -563,3 +563,14 @@ Phase 23 — 흐름도 연결 UX·확장 캔버스·이미지 저장·공유 (20
 
   배포 방식: 기존 Firestore/Storage 규칙과 데이터 구조를 사용하며 앱만 main push로 배포.
   제한: 객체 수 100·연결선 200은 유지. 공유는 편집 가능한 원본이 아닌 이미지 사본.
+
+Phase 24 — Wanted Sans 웹폰트 교체 (2026-11-18)
+
+  공식 wanteddev/wanted-sans v1.0.3의 한글·영문 가변 WOFF2를 프로젝트에 포함.
+  next/font/local로 본문·제목·워드마크에 적용, 공식 굵기 범위 400–1000 사용.
+  기존 Plus Jakarta Sans·Fraunces 로딩 및 Fraunces 전용 축 설정 제거.
+  public/fonts/wanted-sans에 원본 글꼴·OFL 라이선스·출처 및 SHA-256 기록.
+  검증: 운영 빌드·변경 파일 ESLint 통과, layout E2E 8건 통과.
+    360/390/768/1280/1440px에서 글꼴 로딩·가로 넘침·메뉴·보드 버튼·키보드 동작 확인.
+    웹폰트 로딩을 기다린 후 레이아웃을 검사하도록 보강, 390px 홈 화면 시각 확인.
+  배포 방식: 앱만 main push로 운영 배포. 데이터·보안 규칙 변경 없음.

@@ -1,20 +1,16 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import AuthProvider from "@/components/auth/AuthProvider";
 import Footer from "@/components/layout/Footer";
 import AgentationToolbar from "@/components/dev/AgentationToolbar";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  axes: ["SOFT", "WONK"],
+const wantedSans = localFont({
+  src: "../../public/fonts/wanted-sans/WantedSansVariable.woff2",
+  variable: "--font-wanted-sans",
+  weight: "400 1000",
+  style: "normal",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -40,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${jakarta.variable} ${fraunces.variable} h-full`}>
+    <html lang="ko" className={`${wantedSans.variable} h-full`}>
       <body className="min-h-full flex flex-col font-sans antialiased bg-parchment text-ink">
         <AuthProvider>
           {children}

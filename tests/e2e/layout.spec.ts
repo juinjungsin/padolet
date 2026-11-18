@@ -10,6 +10,8 @@ test.beforeAll(async () => {
 });
 
 async function expectNoHorizontalOverflow(page: Page, where: string) {
+  // 웹폰트가 로드된 최종 글자 폭으로 레이아웃을 검사한다.
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
   const { scrollWidth, clientWidth } = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
@@ -40,6 +42,16 @@ for (const width of WIDTHS) {
     const shot = (name: string) => page.screenshot({ path: test.info().outputPath(`${width}-${name}.png`), fullPage: false });
 
     await page.goto("/");
+    const font = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const family = getComputedStyle(document.body).fontFamily;
+      const loaded = Array.from(document.fonts).some(
+        (face) => /wanted/i.test(face.family) && !/fallback/i.test(face.family) && face.status === "loaded"
+      );
+      return { family, loaded };
+    });
+    expect(font.family).toMatch(/wanted/i);
+    expect(font.loaded, "Wanted Sans 웹폰트 로드").toBe(true);
     await expectNoHorizontalOverflow(page, "홈");
     await shot("home");
 

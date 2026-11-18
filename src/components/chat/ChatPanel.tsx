@@ -12,11 +12,13 @@ import {
   hideMessage,
   unhideMessage,
   editMessage,
+  deleteMessage,
   canEditWindow,
 } from "@/lib/firestore";
 import { MAX_FILE_SIZE_MB, uploadFile, validateFiles, UploadProgress } from "@/lib/storage";
 import { isSafeExternalUrl } from "@/lib/url-safe";
 import { formatBytes, formatTime } from "@/lib/format";
+import { sortMessages, MessageSort } from "@/lib/board-layout";
 import Menu from "@/components/ui/Menu";
 import { findLocalPath, LOCAL_PATH_NOTICE } from "@/lib/local-path";
 import {
@@ -87,10 +89,13 @@ export default function ChatPanel({
   const [pathConfirmedFor, setPathConfirmedFor] = useState<string | null>(null);
   const [showPathNotice, setShowPathNotice] = useState(false);
   const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [sort, setSort] = useState<MessageSort>("oldest");
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const loadMoreRef = useRef<(() => Promise<void>) | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const preserveScroll = useRef(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -120,20 +125,24 @@ export default function ChatPanel({
   async function handleLoadMore() {
     if (!loadMoreRef.current || loadingMore) return;
     setLoadingMore(true);
+    preserveScroll.current = true;
     const prevHeight = scrollRef.current?.scrollHeight || 0;
-    await loadMoreRef.current();
+    try { await loadMoreRef.current(); }
+    catch { setSendError("이전 대화를 불러오지 못했습니다. 다시 시도해 주세요."); }
     // 추가 로드 후 사용자가 보던 위치 유지
     requestAnimationFrame(() => {
-      if (!scrollRef.current) return;
-      const diff = scrollRef.current.scrollHeight - prevHeight;
-      scrollRef.current.scrollTop = diff;
+      if (scrollRef.current && sort === "oldest") {
+        const diff = scrollRef.current.scrollHeight - prevHeight;
+        scrollRef.current.scrollTop = diff;
+      }
+      preserveScroll.current = false;
     });
     setLoadingMore(false);
   }
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+    if (sort === "oldest" && !preserveScroll.current) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sort]);
 
   function handleReply(msg: Message) {
     const preview = msg.content.length > 30 ? msg.content.slice(0, 30) + "..." : msg.content;
@@ -378,6 +387,10 @@ export default function ChatPanel({
     >
       <div className="px-4 py-3 border-b border-silver-mist">
         <h2 className="text-base font-semibold text-graphite">대화</h2>
+        <label className="text-sm">대화 정렬 <select aria-label="대화 정렬" value={sort} onChange={e => setSort(e.target.value as MessageSort)} className="border rounded p-1 mt-2">
+          <option value="oldest">오래된순</option><option value="latest">최신순</option><option value="author">작성자순</option><option value="content">내용순</option>
+        </select></label>
+        {hasMore && <p className="text-xs text-slate-text mt-1">불러온 대화 내 정렬입니다. 이전 메시지 보기로 범위를 넓힐 수 있습니다.</p>}
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -392,7 +405,7 @@ export default function ChatPanel({
             </button>
           </div>
         )}
-        {messages.map((msg) => (
+        {sortMessages(messages, sort).map((msg) => (
           <div key={msg.id} data-message-id={msg.id} className={`${msg.authorId === authorId ? "text-right" : ""}`}>
             <p className="text-xs font-semibold text-slate-text mb-1">{msg.authorName}</p>
             {msg.hidden ? (
@@ -519,6 +532,16 @@ export default function ChatPanel({
                     수정
                   </button>
                 )}
+              {(isAdmin || (msg.authorId === authorId && !locked)) && <button disabled={deleting === msg.id} className="touch-target text-xs px-1 text-red-700" onClick={async () => {
+                if (!msg.id || !confirm("이 대화를 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.")) return;
+                setDeleting(msg.id); setSendError("");
+                try {
+                  await deleteMessage(sessionId, msg.id);
+                  if (replyTo?.id === msg.id) setReplyTo(null);
+                  if (editingId === msg.id) cancelEdit();
+                } catch { setSendError("대화를 삭제하지 못했습니다. 다시 시도해 주세요."); }
+                finally { setDeleting(null); }
+              }}>{deleting === msg.id ? "삭제 중..." : "삭제"}</button>}
               {msg.linkedPostId && (
                 <span className="inline-flex items-center gap-0.5 h-7 px-1 text-xs font-semibold text-ochre whitespace-nowrap">
                   <RiQuestionLine size={10} aria-hidden />

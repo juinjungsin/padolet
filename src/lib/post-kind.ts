@@ -67,7 +67,7 @@ export function filterPosts(posts: Post[], f: PostFilter): Post[] {
   );
 }
 
-export type PostSortMode = "default" | "latest" | "reactions";
+export type PostSortMode = "default" | "latest" | "oldest" | "title" | "author" | "reactions";
 
 const millis = (t: { toMillis?: () => number } | null | undefined) => t?.toMillis?.() ?? 0;
 
@@ -87,6 +87,9 @@ export function sortPosts(posts: Post[], mode: PostSortMode): Post[] {
       const diff = millis(b.pinnedAt) - millis(a.pinnedAt);
       if (diff !== 0) return diff;
     }
+    if (mode === "oldest") return millis(a.createdAt) - millis(b.createdAt);
+    if (mode === "title") return (a.title || a.content).localeCompare(b.title || b.content, "ko");
+    if (mode === "author") return a.authorName.localeCompare(b.authorName, "ko");
     if (mode === "latest") return millis(b.createdAt) - millis(a.createdAt);
     if (mode === "reactions") {
       const diff = reactionCount(b.reactions) - reactionCount(a.reactions);

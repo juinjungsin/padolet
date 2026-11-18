@@ -188,6 +188,7 @@ export interface Post {
   fileMeta?: { name: string; size: number; mimeType: string };
   createdAt: Timestamp;
   gridIndex: number;
+  kanbanStatus?: "todo" | "doing" | "done";
   pinned?: boolean;
   pinnedAt?: Timestamp | null;
   editedAt?: Timestamp | null;
@@ -322,7 +323,7 @@ export async function deleteSession(sessionId: string) {
   await deleteDocsInBatches(postsSnap.docs);
   await deleteDocsInBatches(pollsSnap.docs);
   await deleteDocsInBatches(submissionsSnap.docs);
-  for (const sub of ["participants", "messages", "modules", "progress", "helpRequests"]) {
+  for (const sub of ["participants", "messages", "modules", "progress", "helpRequests", "flowcharts"]) {
     const snap = await getDocs(collection(db, "sessions", sessionId, sub));
     await deleteDocsInBatches(snap.docs);
   }
@@ -878,6 +879,10 @@ export async function addMessage(sessionId: string, data: Omit<Message, "id" | "
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function deleteMessage(sessionId: string, messageId: string) {
+  await deleteDoc(doc(getDb(), "sessions", sessionId, "messages", messageId));
 }
 
 export async function hideMessage(sessionId: string, messageId: string) {

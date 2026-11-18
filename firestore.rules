@@ -76,8 +76,11 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.uid;
 
       // 수정/삭제: 소유자 또는 super_admin
-      allow update, delete: if isSuperAdmin()
-        || (isAuthed() && resource.data.createdBy == request.auth.uid);
+      allow delete: if isSessionAdmin(sessionId);
+      allow update: if isSessionAdmin(sessionId)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['title'])
+            || (isAdmin() && request.resource.data.title is string
+                && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200));
 
       // ---------- participants ----------
       // 문서 ID = firebase auth uid
@@ -138,12 +141,23 @@ service cloud.firestore {
         // 리액션: 세션 참여자는 reactions 필드만 수정 가능 (다른 필드 변경 불가)
         // 댓글: 세션 참여자는 commentCount만 수정 가능 (댓글 작성/삭제 시 증감)
         allow update: if isSessionAdmin(sessionId)
+          || (isSessionParticipant(sessionId)
+              && resource.data.authorId == request.auth.uid
+              && !isBoardLocked(sessionId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'color', 'gridIndex', 'kanbanStatus'])
+              && request.resource.data.get('title', '') is string
+              && request.resource.data.get('title', '').size() <= 200
+              && request.resource.data.get('color', 'yellow') in ['yellow', 'blue', 'green', 'pink']
+              && request.resource.data.gridIndex is number
+              && request.resource.data.get('kanbanStatus', 'todo') in ['todo', 'doing', 'done'])
           || (isAuthed()
               && resource.data.authorId == request.auth.uid
               && withinEditWindow(resource.data.createdAt)
               && !isBoardLocked(sessionId)
               && request.resource.data.diff(resource.data).affectedKeys()
-                   .hasOnly(['content', 'editedAt', 'title', 'purpose']))
+                   .hasOnly(['content', 'editedAt', 'title', 'purpose'])
+              && request.resource.data.get('title', '') is string
+              && request.resource.data.get('title', '').size() <= 200)
           || (isSessionParticipant(sessionId)
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
               && !isBoardLocked(sessionId))
@@ -193,10 +207,31 @@ service cloud.firestore {
           || (isAuthed()
               && resource.data.authorId == request.auth.uid
               && withinEditWindow(resource.data.createdAt)
-              && !isBoardLocked(sessionId));
+              && !isBoardLocked(sessionId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'editedAt']));
 
-        // 삭제: 세션 관리자만
-        allow delete: if isSessionAdmin(sessionId);
+        // 삭제: 본인(잠금 중 제외) 또는 세션 관리자
+        allow delete: if isSessionAdmin(sessionId)
+          || (isSessionParticipant(sessionId) && resource.data.authorId == request.auth.uid && !isBoardLocked(sessionId));
+      }
+
+      // Shared gallery: each participant owns a diagram; owners and session admins can edit it.
+      match /flowcharts/{flowId} {
+        allow read: if true;
+        function canEditFlow() {
+          return isSessionAdmin(sessionId)
+            || (isSessionParticipant(sessionId) && flowId == request.auth.uid && !isBoardLocked(sessionId));
+        }
+        function validFlow() {
+          return request.resource.data.keys().hasOnly(['title', 'nodes', 'edges', 'revision', 'updatedAt'])
+            && request.resource.data.title is string && request.resource.data.title.size() <= 200
+            && request.resource.data.nodes is list && request.resource.data.nodes.size() <= 100
+            && request.resource.data.edges is list && request.resource.data.edges.size() <= 200
+            && request.resource.data.revision is int;
+        }
+        allow create: if canEditFlow() && validFlow() && request.resource.data.revision == 1;
+        allow update: if canEditFlow() && validFlow() && request.resource.data.revision == resource.data.revision + 1;
+        allow delete: if canEditFlow();
       }
 
       // ---------- modules (현재 실습 안내, P1-01) ----------

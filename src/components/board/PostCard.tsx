@@ -22,6 +22,7 @@ import { isSafeExternalUrl } from "@/lib/url-safe";
 import Card from "@/components/ui/Card";
 import Menu, { MenuItem } from "@/components/ui/Menu";
 import Collapsible from "@/components/ui/Collapsible";
+import PostSettings from "./PostSettings";
 import PostComments from "@/components/board/PostComments";
 import {
   RiDeleteBinLine,
@@ -144,6 +145,7 @@ export function AttachmentView({ post }: { post: Post }) {
 export default function PostCard({ post, ctx }: { post: Post; ctx: PostCardContext }) {
   const { sessionId, isAdmin, currentUserId, spotlightPostId, locked = false } = ctx;
   const [copyState, setCopyState] = useState<"idle" | "done" | "failed">("idle");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingText, setEditingText] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -208,6 +210,10 @@ export default function PostCard({ post, ctx }: { post: Post; ctx: PostCardConte
 
   const menuItems: MenuItem[] = [];
   if (post.id) {
+    if (isAdmin || (isOwn && !locked)) menuItems.push({
+      key: "settings", label: "제목·색상·위치 변경", icon: <RiEditLine size={16} />,
+      onSelect: () => setSettingsOpen(v => !v),
+    });
     if (editable && post.type !== "image" && post.type !== "file" && !editing) {
       menuItems.push({
         key: "edit",
@@ -341,11 +347,14 @@ export default function PostCard({ post, ctx }: { post: Post; ctx: PostCardConte
   return (
     <Card
       data-post-kind={kind}
-      // 공지는 강조 바탕 — Card 기본 배경·테두리 클래스보다 우선하도록 ! 표기
+      data-post-id={post.id}
+      style={{ backgroundColor: POST_COLOR_STYLES[post.color || "yellow"].bg }}
+      // 공지는 테두리로 강조하고 선택한 색상은 모든 게시물에 적용한다.
       className={`group relative mb-4 break-inside-avoid p-4 pl-5 rounded-xl ${
-        kind === "notice" ? "bg-buttercup! border-ochre/40!" : ""
+        kind === "notice" ? "border-ochre/40!" : ""
       } ${isSpotlighted ? "ring-2 ring-blueprint" : post.pinned ? "ring-1 ring-graphite/30" : ""}`}
     >
+      {settingsOpen && (isAdmin || (isOwn && !locked)) && <PostSettings post={post} sessionId={sessionId} bannedWords={ctx.bannedWords ?? []} onClose={() => setSettingsOpen(false)} />}
       {/* 색상 태그 띠 — 메뉴 드롭다운이 잘리지 않도록 카드에 overflow-hidden을 쓰지 않는다 */}
       <span aria-hidden className="absolute left-0 inset-y-0 w-1.5 rounded-l-xl" style={{ backgroundColor: stripe }} />
 

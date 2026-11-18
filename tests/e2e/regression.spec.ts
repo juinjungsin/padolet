@@ -81,12 +81,12 @@ test("관리자 고정(게시물 메뉴) → 교육생 화면에 고정됨 표�
   await expect(studentCard).toContainText("고정됨");
 });
 
-test("교육생은 남의 글 게시물 메뉴가 없고, 본인 글에는 수정·삭제만 있다", async () => {
+test("교육생은 남의 글 게시물 메뉴가 없고, 본인 글에는 설정·수정·삭제만 있다", async () => {
   const others = visible(student, "post-board").locator("div.group", { hasText: "첫 번째 가상 포스트잇입니다." });
   await expect(others.getByRole("button", { name: "게시물 메뉴" })).toHaveCount(0);
   const mine = visible(student, "post-board").locator("div.group", { hasText: "회귀 테스트 게시물" });
   await mine.getByRole("button", { name: "게시물 메뉴" }).click();
-  await expect(student.getByRole("menuitem")).toHaveText([/수정/, "삭제"]);
+  await expect(student.getByRole("menuitem")).toHaveText(["제목·색상·위치 변경", /수정/, "삭제"]);
   await student.keyboard.press("Escape");
 });
 

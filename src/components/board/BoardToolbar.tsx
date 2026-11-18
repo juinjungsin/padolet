@@ -135,7 +135,10 @@ export default function BoardToolbar({
         title={SORT_RULE_HELP}
         className={select}
       >
-        <option value="default">등록순</option>
+        <option value="default">배치순</option>
+        <option value="oldest">오래된순</option>
+        <option value="title">제목·내용순</option>
+        <option value="author">작성자순</option>
         <option value="latest">최신순</option>
         <option value="reactions">공감순</option>
       </select>

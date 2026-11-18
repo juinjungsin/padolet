@@ -7,6 +7,10 @@ import { useSession } from "next-auth/react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth as firebaseAuth, waitForAuthUser } from "@/lib/firebase";
 import Nav from "@/components/layout/Nav";
+import KanbanBoard from "@/components/board/KanbanBoard";
+import FlowchartBoard from "@/components/board/FlowchartBoard";
+import BoardTitleEditor from "@/components/board/BoardTitleEditor";
+import PanelResizeHandle from "@/components/board/PanelResizeHandle";
 import PostGrid from "@/components/board/PostGrid";
 import MaterialsList from "@/components/board/MaterialsList";
 import type { PostCardContext } from "@/components/board/PostCard";
@@ -38,6 +42,7 @@ import WaveDecor from "@/components/ui/WaveDecor";
 import { SessionTimerBanner, SessionTimerModal } from "@/components/board/SessionTimer";
 import {
   getSession,
+  getRole,
   onMessages,
   onParticipants,
   onPosts,
@@ -65,10 +70,12 @@ import {
   RiUploadCloud2Line,
 } from "react-icons/ri";
 
-type BoardView = "board" | "materials" | "questions" | "submissions";
+type BoardView = "kanban" | "flowchart" | "board" | "materials" | "questions" | "submissions";
 
 const VIEW_TABS: { key: BoardView; label: string; icon: React.ReactNode }[] = [
   { key: "board", label: "보드", icon: <RiLayoutMasonryLine size={16} aria-hidden /> },
+  { key: "kanban", label: "칸반", icon: <RiLayoutMasonryLine size={16} aria-hidden /> },
+  { key: "flowchart", label: "흐름도", icon: <RiLayoutMasonryLine size={16} aria-hidden /> },
   { key: "materials", label: "자료", icon: <RiBookOpenLine size={16} aria-hidden /> },
   { key: "questions", label: "질문", icon: <RiQuestionLine size={16} aria-hidden /> },
   { key: "submissions", label: "제출", icon: <RiUploadCloud2Line size={16} aria-hidden /> },
@@ -87,6 +94,12 @@ export default function BoardPage() {
   const { data: authSession, status: authStatus } = useSession();
   const sessionId = params.sessionId as string;
 
+  const [registeredAdmin, setRegisteredAdmin] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    getRole(authSession?.user?.email).then(role => { if (!cancelled) setRegisteredAdmin(role !== "none"); }).catch(() => { if (!cancelled) setRegisteredAdmin(false); });
+    return () => { cancelled = true; };
+  }, [authSession?.user?.email]);
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const participantCount = participants.length;
@@ -414,6 +427,7 @@ export default function BoardPage() {
         onToggleLock={isAdmin ? handleToggleLock : undefined}
       />
 
+      {isAdmin && registeredAdmin && session && <BoardTitleEditor sessionId={sessionId} title={session.title} />}
       <ConnectionBanner />
 
       {/* 보드 잠금 배너 */}
@@ -481,7 +495,7 @@ export default function BoardPage() {
             }}
           />
           {/* 보기 전환 — 같은 게시물을 보드(카드 벽)·자료 목록·질문 목록으로 */}
-          <div role="tablist" aria-label="게시물 보기" className="flex gap-1 px-4 pt-3 bg-parchment">
+          <div role="tablist" aria-label="게시물 보기" className="flex shrink-0 overflow-x-auto gap-1 px-4 pt-3 bg-parchment">
             {VIEW_TABS.filter((t) => t.key !== "submissions" || hasSubmissionBox).map((t) => (
               <button
                 key={t.key}
@@ -490,7 +504,7 @@ export default function BoardPage() {
                 aria-selected={view === t.key}
                 aria-controls="view-panel"
                 onClick={() => setView(t.key)}
-                className={`touch-target inline-flex items-center gap-1.5 h-10 px-4 rounded-t-lg text-sm font-semibold border-b-2 cursor-pointer ${
+                className={`touch-target inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 h-10 px-4 rounded-t-lg text-sm font-semibold border-b-2 cursor-pointer ${
                   view === t.key
                     ? "text-graphite border-graphite bg-chalk-card"
                     : "text-slate-text border-transparent hover:text-graphite"
@@ -500,7 +514,7 @@ export default function BoardPage() {
                 {t.label}
                 {t.key === "questions" && unansweredCount > 0 && (
                   <span
-                    className="min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-warn text-chalk-card text-xs font-bold"
+                    className="min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-warn text-chalk-card text-sm font-bold"
                     aria-label={`미답변 ${unansweredCount}개`}
                   >
                     {unansweredCount}
@@ -509,7 +523,7 @@ export default function BoardPage() {
               </button>
             ))}
           </div>
-          {view !== "submissions" && (
+          {view !== "submissions" && view !== "flowchart" && (
           <PostInput
             ref={composerRef}
             moduleId={activeModuleId}
@@ -523,7 +537,7 @@ export default function BoardPage() {
             locked={lockedForMe}
           />
           )}
-          {view !== "submissions" && (
+          {view !== "submissions" && view !== "flowchart" && (
           <BoardToolbar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -544,7 +558,10 @@ export default function BoardPage() {
           />
           )}
           <div id="view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`}>
-            {view === "board" ? (
+            <div hidden={view !== "flowchart"}><FlowchartBoard ctx={cardContext} /></div>
+            {view === "flowchart" ? null : view === "kanban" ? (
+              <KanbanBoard posts={posts} filter={postFilter} sortMode={sortMode} ctx={cardContext} />
+            ) : view === "board" ? (
               <PostGrid posts={posts} filter={postFilter} sortMode={sortMode} ctx={cardContext} />
             ) : view === "materials" ? (
               <MaterialsList posts={posts} filter={postFilter} sortMode={sortMode} />
@@ -570,10 +587,11 @@ export default function BoardPage() {
             )}
           </div>
         </main>
+        <PanelResizeHandle />
         <aside
           id="chat-panel"
           aria-label="대화"
-          className={`${mobileTab === "chat" ? "flex" : "hidden"} lg:flex w-full lg:w-[360px] xl:w-[400px] shrink-0 flex-col min-h-0`}
+          className={`${mobileTab === "chat" ? "flex" : "hidden"} lg:flex w-full lg:w-[clamp(280px,var(--chat-width,360px),60%)] shrink-0 flex-col min-h-0`}
         >
           <ChatPanel
             sessionId={sessionId}

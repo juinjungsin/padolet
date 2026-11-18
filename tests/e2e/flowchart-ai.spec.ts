@@ -4,8 +4,39 @@ import { seed, SEED, createTestEnv } from "../support/seed.mjs";
 import { EMULATOR_PORTS } from "../../scripts/emulator-env.mjs";
 import { joinAsParticipant } from "./helpers";
 import { DEFAULT_FLOW_MODEL, parseGeneratedFlow } from "../../src/lib/flowchart-ai";
+import { exampleTemplate } from "../support/flowchart-example";
 
 test.beforeAll(async () => { await seed(); });
+
+test("예시 양식 자동 인식·AI 호출 없는 초안 생성·저장 복원", async ({ page }) => {
+  let calls = 0;
+  await page.route("**/api/flowcharts/generate", route => { calls++; return route.abort(); });
+  await joinAsParticipant(page, SEED.main.code, "예시 검증");
+  await page.getByRole("tab", { name: "흐름도", exact: true }).click();
+  const panel = page.getByTestId("flow-ai-import");
+  await panel.getByText("MD 파일에서 AI로 흐름도 만들기", { exact: true }).click();
+  await panel.getByLabel("업무 설명 Markdown 파일", { exact: true }).setInputFiles({ name: "example.md", mimeType: "text/markdown", buffer: Buffer.from(exampleTemplate) });
+  const mode = panel.getByRole("combobox", { name: "문서 분석 기준", exact: true });
+  await expect(mode).toHaveValue("example");
+  await expect(panel.getByLabel("OpenAI API 키", { exact: true })).toHaveValue("");
+  await expect(panel.getByRole("button", { name: "AI로 생성", exact: true })).toBeDisabled();
+  const local = panel.getByRole("button", { name: "예시 절차로 바로 초안 만들기 (AI 호출 없음)", exact: true });
+  await mode.selectOption("actual"); await expect(local).toHaveCount(0);
+  await mode.selectOption("example"); await local.click();
+  const preview = panel.getByRole("region", { name: "AI 생성 결과 미리보기" });
+  await expect(preview).toContainText("단계 5개 · 연결 4개");
+  await expect(preview).toContainText("[예시 초안]");
+  await expect(panel.getByRole("status")).toContainText("AI 호출 없이");
+  await preview.getByRole("button", { name: "현재 흐름도에 적용" }).click();
+  await expect(preview).toHaveCount(0);
+  await page.getByRole("button", { name: "흐름도 저장", exact: true }).click();
+  await expect(page.getByText("흐름도를 저장했습니다.", { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByRole("tab", { name: "흐름도", exact: true }).click();
+  await expect(page.getByLabel("흐름도 제목", { exact: true })).toHaveValue("[예시 초안] 정산 작업명세서 (간편 양식)");
+  await expect(page.getByRole("button", { name: "단계 결과를 보고하고 담당자 확인을 기다린다.", exact: true })).toBeVisible();
+  expect(calls).toBe(0);
+});
 const key = "sk-test-placeholder-not-a-real-key";
 const generated = parseGeneratedFlow({ title: "AI 견적 업무", warnings: ["승인 기한은 원문에 없습니다."],
   nodes: ["접수", "승인"].map((label, i) => ({ id: `n${i}`, label, kind: i ? "decision" : "step", organization: i ? "관리팀" : "영업팀", owner: "담당자", input: "요청서", output: "견적서", system: "ERP", issue: "", improvement: "", action: null, minutes: null, waitMinutes: null })),

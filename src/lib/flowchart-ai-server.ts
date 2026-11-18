@@ -1,5 +1,5 @@
 // Server route helpers. Keys and document contents are never logged or persisted.
-import { FLOW_AI_INSTRUCTIONS, FLOW_AI_SCHEMA, parseResponseOutput, validateMarkdown } from "./flowchart-ai";
+import { FLOW_AI_SCHEMA, FlowExtractionMode, NoWorkflowFoundError, exampleProcedureDraft, flowExtractionInstructions, markExampleFlow, parseResponseOutput, validateMarkdown } from "./flowchart-ai";
 
 export class FlowAIError extends Error {
   constructor(message: string, public status: number) { super(message); }
@@ -55,12 +55,12 @@ export async function requireFlowAccess(sessionId: string, token: string, signal
   if (name && session.fields?.blockedNames?.arrayValue?.values?.some(v => v.stringValue?.trim().toLowerCase() === name)) throw new FlowAIError("관리자에 의해 사용이 제한되었습니다.", 403);
 }
 
-export async function generateFlow(markdown: string, model: string, apiKey: string, signal: AbortSignal) {
+export async function generateFlow(markdown: string, model: string, apiKey: string, signal: AbortSignal, mode: FlowExtractionMode = "actual") {
   validateMarkdown(markdown);
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     cache: "no-store", redirect: "error", signal,
-    body: JSON.stringify({ model, store: false, instructions: FLOW_AI_INSTRUCTIONS,
+    body: JSON.stringify({ model, store: false, instructions: flowExtractionInstructions(mode),
       input: [{ role: "user", content: [{ type: "input_text", text: markdown }] }],
       text: { format: { type: "json_schema", name: "business_workflow", strict: true, schema: FLOW_AI_SCHEMA } }, max_output_tokens: 16000 }),
   });
@@ -71,6 +71,14 @@ export async function generateFlow(markdown: string, model: string, apiKey: stri
     if (response.status === 400 || response.status === 404) throw new FlowAIError("이 모델에서 구조화된 흐름도 생성을 사용할 수 없습니다. 모델 ID를 확인해 주세요.", 400);
     throw new FlowAIError("OpenAI 서비스가 응답하지 못했습니다. 잠시 후 다시 시도해 주세요.", 502);
   }
-  try { return parseResponseOutput(await readBoundedJson(response, 1024 * 1024)); }
-  catch (error) { throw new FlowAIError(error instanceof Error ? error.message : "AI 결과를 읽지 못했습니다.", 502); }
+  try {
+    const result = parseResponseOutput(await readBoundedJson(response, 1024 * 1024));
+    return mode === "example" ? markExampleFlow(result) : result;
+  } catch (error) {
+    if (error instanceof NoWorkflowFoundError && mode === "example") {
+      const fallback = exampleProcedureDraft(markdown);
+      if (fallback) return { ...fallback, warnings: [...fallback.warnings, "AI가 단계를 반환하지 않아 문서의 명시된 예시 절차로 초안을 구성했습니다. 추가 AI 호출은 하지 않았습니다."] };
+    }
+    throw new FlowAIError(error instanceof Error ? error.message : "AI 결과를 읽지 못했습니다.", error instanceof NoWorkflowFoundError ? 422 : 502);
+  }
 }

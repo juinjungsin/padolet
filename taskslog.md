@@ -505,7 +505,7 @@ Phase 21 — 첨부 파일 1개 상한 50MB → 100MB (2026-10-24)
   배포: storage 규칙 먼저 → main push
   참고: 버킷이 US-CENTRAL1이라 한국에서 100MB 업로드는 수십 초~수 분, 다운로드 무료 월 100GB 초과분은 과금
 
-Phase 22 — 보드 편집·칸반·작업 흐름도 (2026-11-18, 운영 미배포)
+Phase 22 — 보드 편집·칸반·작업 흐름도 (2026-11-18, 운영 배포 완료)
 
   사용자 요청 8항목 반영
     1. 포스트잇 위치·컬러: 배치순에서 드래그 이동, 설정에서 배치 번호·4가지 색상 변경. 자신의 문서만 갱신하는 순서 계산.
@@ -533,4 +533,11 @@ Phase 22 — 보드 편집·칸반·작업 흐름도 (2026-11-18, 운영 미배�
     레이아웃: 360/390/768/1280/1440px 통과. 신규 컴포넌트·유틸·테스트 ESLint 통과.
     전체 ESLint는 기존 7건(오류 3·경고 4) 유지, 타입 검사 및 최종 운영 빌드 통과.
 
-  배포: 아직 실행하지 않음. Firestore 규칙 선배포 후 앱 배포 필요. README에 사용법 추가.
+  배포: 사용자 지시에 따라 Firestore 규칙 선배포 후 main push 완료. README에 사용법 추가.
+    Firebase jblet-3e6c3: firestore.rules 컴파일·업로드·release 성공 (Storage·인덱스 변경 없음).
+    기능 커밋: 5551f5981a0eaac21471b869fb5fffc5548931af.
+    Vercel: dpl_2tFwRNRK2GuPrpJxwgfbhcz2NLsb, production READY, 빌드 약 36초.
+    운영: https://padolet.vercel.app — 홈·입장·보드 경로 HTTP 200.
+    운영 JS에서 kanbanStatus·flowcharts·너비 조절·제목/색상/위치 변경 코드 제공 확인.
+    배포 직후 해당 배포의 error/fatal 서버 로그 없음. 실제 운영 사용자 데이터의 생성·수정·삭제 테스트는 하지 않음.
+    되돌리기 기준: 이전 운영 배포 dpl_BPCcqRrNJAL64YooQGnF9ADkP8eR (4717a75).
